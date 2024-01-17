@@ -1,6 +1,7 @@
 # CPP：词法约定
 
 ---
+
 ## 1. 单独翻译
 
 程序的文本保存在本文档中称为源文件的单元中。一个源文件连同所有的头文件和通过预处理指令 `#include` 包含的源文件，减去任何条件包含预处理指令跳过的源行，被称为预处理翻译单元。
@@ -8,9 +9,11 @@
 一个 C++ 程序不需要全部同时翻译。以前翻译过的翻译单元和实例化单元可以单独保存或保存在库中。程序的独立翻译单元通过 (例如) 调用其标识符具有外部或模块链接的函数、操作其标识符具有外部或模块链接的对象或操作数据文件进行通信。翻译单元可以单独翻译，然后再链接以产生可执行程序。
 
 ---
+
 ## 2. 翻译阶段
 
 翻译语法规则的优先顺序由以下几个阶段指定：
+
 1. 实现应支持 UTF-8 代码单元序列 (UTF-8 文件) 的输入文件。它还可以支持一组由实现定义的其他类型的输入文件，如果是这样，那么输入文件的类型将以一种由实现定义的方式确定，这种方式包括一种将输入文件指定为 UTF-8 文件的方法，与它们的内容无关。换句话说，仅仅识别 **U+FEFF BYTE ORDER MARK** 是不够的。<br>
 如果一个输入文件被确定为 UTF-8 文件，那么它应该是一个格式良好的 UTF-8 代码单元序列，并对其进行解码以产生一个 Unicode 标量值序列。然后，通过将每个 Unicode 标量值映射到相应的翻译字符集元素，形成翻译字符集元素序列。在结果序列中，由 U+000D 回车后跟 U+000A 换行组成的输入序列中的每对字符，以及每个 U+000D 回车后面没有紧跟着 U+000A 换行的字符，都被单个换行字符替换。对于实现支持的任何其他类型的输入文件，字符以实现定义的方式映射到翻译字符集元素序列，将行尾指示符表示为换行符。
 <br>
@@ -24,10 +27,10 @@
 4. 执行预处理指令，扩展宏调用，并执行 `_Pragma` 一元运算符表达式。`#include` 预处理指令导致命名的头文件或源文件从阶段 1 到阶段 4 递归地被处理。然后删除所有预处理指令。
 <br>
 
-5. 对于两个或更多相邻的字符串字面量令牌的序列，确定一个公共的编码前缀。然后将每个这样的字符串字面量令牌都视为具有那个公共的编码前缀。
+5. 对于两个或更多相邻的字符串字面值令牌的序列，确定一个公共的编码前缀。然后将每个这样的字符串字面值令牌都视为具有那个公共的编码前缀。
 <br>
 
-6. 相邻的字符串字面量令牌被连接。
+6. 相邻的字符串字面值令牌被连接。
 <br>
 
 7. 分隔令牌的空白字符不再重要。每个预处理令牌被转换为一个令牌。结果令牌构成一个翻译单元，并被语法和语义分析和翻译。分析和翻译令牌的过程有时会导致一个令牌被一系列其他令牌替换。是否需要提供当前翻译单元具有接口依赖性的模块单元和头单元的源是由实现定义的。源文件、翻译单元和翻译后的翻译单元不必一定存储为文件，也不必在这些实体和任何外部表示之间有任何一对一的对应关系。描述只是概念性的，不指定任何特定的实现。
@@ -43,9 +46,11 @@
 9. 解析所有外部实体引用。链接库组件以满足对当前翻译中未定义的实体的外部引用。所有这样的翻译器输出被收集到一个程序映像中，该映像包含在其执行环境中执行所需的信息。
 
 ---
+
 ## 3. 字符集
 
 翻译字符集由以下元素组成：
+
 - 在 Unicode 标准中指定的 Unicode 代码空间中分配了代码点的每个抽象字符，以及
 - 对于每个未分配给抽象字符的 Unicode 标量值，都有一个独特的字符。
 
@@ -112,10 +117,10 @@ Unicode 代码点是范围在 [0, 10FFFF]（十六进制）的整数。替代代
         <em>hexadecimal-digit</em>
         <em>simple-hexadecimal-digit-sequence hexadecimal-digit</em>
 
-<em>named-universal-character</em> : 
+<em>named-universal-character</em> :
         \N{ <em>n-char-sequence</em> }
 
-<em>n-char-sequence</em> : 
+<em>n-char-sequence</em> :
         <em>n-char</em>
         <em>n-char-sequence n-char</em>
 
@@ -126,7 +131,7 @@ Unicode 代码点是范围在 [0, 10FFFF]（十六进制）的整数。替代代
 
 一个是 *named-universal-character* 的 *universal-character-name* 指定 Unicode 标准中的对应字符，如果 *n-char-sequence* 等于其字符名称或其类型为 “control”、“correction” 或 “alternate” 的字符名称别名；否则，程序就是格式错误的。这些别名列在 Unicode 字符数据库的 NameAliases.txt 中。这些名称或别名都没有前导或尾随空格。
 
-如果一个 *universal-character-name* 在字符字面量或字符串字面量的 *c-char-sequence*、*s-char-sequence* 或 *r-char-sequence* 之外（在任何一种情况下，包括在用户定义的字面量中）对应于控制字符或基本字符集中的字符，程序就是格式错误的。在* r-char-sequence* 中类似 *universal-character-name* 的字符序列不形成 *universal-character-name*。
+如果一个 *universal-character-name* 在字符字面值或字符串字面值的 *c-char-sequence*、*s-char-sequence* 或 *r-char-sequence* 之外（在任何一种情况下，包括在用户定义的字面值中）对应于控制字符或基本字符集中的字符，程序就是格式错误的。在*r-char-sequence* 中类似 *universal-character-name* 的字符序列不形成 *universal-character-name*。
 
 基本字面字符集由基本字符集中的所有字符以及下表中指定的控制字符组成。
 
@@ -137,17 +142,18 @@ Unicode 代码点是范围在 [0, 10FFFF]（十六进制）的整数。替代代
 | U+0008  | backspace       |
 | U+000D  | carriage return |
 
-代码单元是字符类型的整数值。在字符字面量中，除了多字符或不可编码的字符字面量，或在字符串字面量中的字符，都被编码为一个或多个代码单元的序列，由编码前缀确定；这被称为各自的字面量编码。普通字面量编码是应用于普通字符或字符串字面量的编码。宽字面量编码是应用于宽字符或字符串字面量的编码。
+代码单元是字符类型的整数值。在字符字面值中，除了多字符或不可编码的字符字面值，或在字符串字面值中的字符，都被编码为一个或多个代码单元的序列，由编码前缀确定；这被称为各自的字面值编码。普通字面值编码是应用于普通字符或字符串字面值的编码。宽字面值编码是应用于宽字符或字符串字面值的编码。
 
-字面量编码或执行字符集中的一个的特定于区域的编码，将基本字面字符集的每个元素编码为一个非负值的单个代码单元，与任何其他此类元素的代码单元不同。不在基本字面字符集中的字符可以用多个代码单元编码；这样的代码单元的值可以与基本字面字符集中的元素的代码单元的值相同。
+字面值编码或执行字符集中的一个的特定于区域的编码，将基本字面字符集的每个元素编码为一个非负值的单个代码单元，与任何其他此类元素的代码单元不同。不在基本字面字符集中的字符可以用多个代码单元编码；这样的代码单元的值可以与基本字面字符集中的元素的代码单元的值相同。
 
-U+0000 空字符被编码为值 0。翻译字符集的其他元素没有一个被编码为值 0 的代码单元。每个十进制数字字符的代码单元值在数字 0（U+0030）之后应该比前一个的值大一。普通和宽字面量编码在其他方面是由实现定义的。对于 UTF-8、UTF-16 或 UTF-32 字面量，实现应该将翻译字符集中每个字符对应的 Unicode 标量值编码为 Unicode 标准中指定的相应 Unicode 编码形式。
+U+0000 空字符被编码为值 0。翻译字符集的其他元素没有一个被编码为值 0 的代码单元。每个十进制数字字符的代码单元值在数字 0（U+0030）之后应该比前一个的值大一。普通和宽字面值编码在其他方面是由实现定义的。对于 UTF-8、UTF-16 或 UTF-32 字面值，实现应该将翻译字符集中每个字符对应的 Unicode 标量值编码为 Unicode 标准中指定的相应 Unicode 编码形式。
 
 ---
+
 ## 4. 预处理令牌
 
 <pre>
-<em>preprocessing-token</em> : 
+<em>preprocessing-token</em> :
         <em>header-name</em>
         <em>import-keyword</em>
         <em>module-keyword</em>
@@ -162,12 +168,13 @@ U+0000 空字符被编码为值 0。翻译字符集的其他元素没有一个�
         每个非空白字符，不能是上述字符之一
 </pre>
 
-每个预处理令牌被转换为一个具有关键字、标识符、字面量、运算符或标点符号的词法形式的令牌。
+每个预处理令牌被转换为一个具有关键字、标识符、字面值、运算符或标点符号的词法形式的令牌。
 
-预处理令牌是语言在翻译阶段 3 到 6 中的最小词法元素。在本文档中，使用字形来识别基本字符集的元素。预处理令牌的类别有：头文件名、由预处理 `import` 和 `module` 指令（*import-keyword*、*module-keyword* 和 *export-keyword*）产生的占位符令牌、标识符、预处理数字、字符字面量（包括用户定义的字符字面量）、字符串字面量（包括用户定义的字符串字面量）、预处理运算符和标点符号，以及单个非空白字符，这些字符在词法上不匹配其他预处理令牌类别。如果 U+0027 撇号或 U+0022 引号字符匹配最后一类，程序就是格式错误的。如果任何不在基本字符集中的字符匹配最后一类，程序就是格式错误的。预处理令牌可以由空白分隔；这包括注释，或空白字符（U+0020 空格，U+0009 水平制表符，换行符，U+000B 垂直制表符，和 U+000C 分页符），或两者。在翻译阶段 4 的某些情况下，空白（或其缺失）作为超过预处理令牌分隔的作用。空白只能作为头文件名的一部分或字符字面量或字符串字面量的引号字符之间出现在预处理令牌内。
+预处理令牌是语言在翻译阶段 3 到 6 中的最小词法元素。在本文档中，使用字形来识别基本字符集的元素。预处理令牌的类别有：头文件名、由预处理 `import` 和 `module` 指令（*import-keyword*、*module-keyword* 和 *export-keyword*）产生的占位符令牌、标识符、预处理数字、字符字面值（包括用户定义的字符字面值）、字符串字面值（包括用户定义的字符串字面值）、预处理运算符和标点符号，以及单个非空白字符，这些字符在词法上不匹配其他预处理令牌类别。如果 U+0027 撇号或 U+0022 引号字符匹配最后一类，程序就是格式错误的。如果任何不在基本字符集中的字符匹配最后一类，程序就是格式错误的。预处理令牌可以由空白分隔；这包括注释，或空白字符（U+0020 空格，U+0009 水平制表符，换行符，U+000B 垂直制表符，和 U+000C 分页符），或两者。在翻译阶段 4 的某些情况下，空白（或其缺失）作为超过预处理令牌分隔的作用。空白只能作为头文件名的一部分或字符字面值或字符串字面值的引号字符之间出现在预处理令牌内。
 
 如果输入流已经被解析为预处理令牌，直到给定的字符：
-- 如果下一个字符开始的字符序列可能是原始字符串字面量的前缀和初始双引号，如 `R"`，下一个预处理令牌应该是原始字符串字面量。在原始字符串的初始和最后的双引号字符之间，执行的任何阶段 2（行拼接）的转换都被恢复；这种恢复应该在识别任何 *d-char*、*r-char* 或定界括号之前应用。原始字符串字面量被定义为匹配原始字符串模式的字符的最短序列 *encoding-prefix*<sub>*opt*</sub> R *raw-string*
+
+- 如果下一个字符开始的字符序列可能是原始字符串字面值的前缀和初始双引号，如 `R"`，下一个预处理令牌应该是原始字符串字面值。在原始字符串的初始和最后的双引号字符之间，执行的任何阶段 2（行拼接）的转换都被恢复；这种恢复应该在识别任何 *d-char*、*r-char* 或定界括号之前应用。原始字符串字面值被定义为匹配原始字符串模式的字符的最短序列 *encoding-prefix*<sub>*opt*</sub> R *raw-string*
 - 否则，如果下一个三字符是 `<::`，并且后续的字符既不是 `:` 也不是 `>`，`<` 被当作一个预处理令牌本身处理，而不是替代令牌 `<:` 的第一个字符。
 - 否则，下一个预处理令牌是可以构成预处理令牌的字符的最长序列，即使这会导致进一步的词法分析失败，除非头文件名只有在以下情况下才形成
   - 在 `#include` 或 `import` 指令中的 `include` 或 `import` 预处理令牌之后，或
@@ -180,14 +187,15 @@ U+0000 空字符被编码为值 0。翻译字符集的其他元素没有一个�
 
 *import-keyword* 是通过处理 `import` 指令产生的，*module-keyword* 是通过预处理 `module` 指令产生的，*export-keyword* 是通过预处理前两个指令中的任何一个产生的。
 
-例如，程序片段 `0xe+foo` 被解析为一个预处理数字令牌（一个不是有效的整数字面量或浮点字面量令牌），即使作为三个预处理令牌 `0xe`、`+` 和 `foo` 的解析可以产生一个有效的表达式（例如，如果 `foo` 是定义为 1 的宏）。类似地，程序片段 `1E1` 被解析为一个预处理数字（一个是有效的浮点字面量令牌），无论 `E` 是否是宏名称。
+例如，程序片段 `0xe+foo` 被解析为一个预处理数字令牌（一个不是有效的整数字面值或浮点字面值令牌），即使作为三个预处理令牌 `0xe`、`+` 和 `foo` 的解析可以产生一个有效的表达式（例如，如果 `foo` 是定义为 1 的宏）。类似地，程序片段 `1E1` 被解析为一个预处理数字（一个是有效的浮点字面值令牌），无论 `E` 是否是宏名称。
 
 例如，程序片段 `x+++++y` 被解析为 `x ++ ++ + y`，如果 `x` 和 `y` 具有整数类型，违反了对增量运算符的约束，即使解析 `x ++ + ++ y` 可以产生一个正确的表达式。
 
 ---
+
 ## 5. 替代令牌
 
-为一些操作符和标点符提供了可选的令牌表示。在该语言的所有方面，除了拼写不同之外，每个替代令牌的行为都与基础令牌相同。替代标记的集合定义在下表中：
+为一些运算符和标点符提供了可选的令牌表示。在该语言的所有方面，除了拼写不同之外，每个替代令牌的行为都与基础令牌相同。替代标记的集合定义在下表中：
 
 | Alternative | Primary | Alternative | Primary | Alternative | Primary |
 | :---------: | :-----: | :---------: | :-----: | :---------: | :-----: |
@@ -199,10 +207,11 @@ U+0000 空字符被编码为值 0。翻译字符集的其他元素没有一个�
 |    $:%:     |   ##    |   bitand    |    &    |             |         |
 
 ---
+
 ## 6. 令牌
 
 <pre>
-<em>token</em> : 
+<em>token</em> :
         <em>identifier</em>
         <em>keyword</em>
         <em>literal</em>
@@ -212,6 +221,7 @@ U+0000 空字符被编码为值 0。翻译字符集的其他元素没有一个�
 有五种令牌：标识符、关键字、字面值、运算符和其他分隔符。如下所述的空格、水平和垂直制表符、换行符、换页符和注释 (统称为空白，*whitespace*) 将被忽略，除非它们用于分隔令牌。需要一些空白来分隔相邻的标识符、关键字、数字字面值和包含字母字符的替代标记。
 
 ---
+
 ## 7. 注释
 
 字符序列 `/*` 开始一个注释，注释以字符序列 `*/` 结束。这些注释不嵌套。
@@ -227,25 +237,26 @@ U+0000 空字符被编码为值 0。翻译字符集的其他元素没有一个�
 ```
 
 ---
+
 ## 8. 头文件名称
 
 <pre>
-<em>header-name</em> : 
+<em>header-name</em> :
         < <em>h-char-sequence</em> >
         " <em>q-char-sequence</em> "
-    
-<em>h-char-sequence</em> : 
+
+<em>h-char-sequence</em> :
         <em>h-char</em>
         <em>h-char-sequence h-char</em>
 
-<em>h-char</em> : 
+<em>h-char</em> :
         翻译字符集的任何成员，除了换行符和 U+003E 大于号
 
 <em>q-char-sequence</em> :
         <em>q-char</em>
         <em>q-char-sequence q-char</em>
 
-<em>q-char</em> : 
+<em>q-char</em> :
         翻译字符集的任何成员，除了换行符和 U+0022 引号
 </pre>
 
@@ -254,10 +265,11 @@ U+0000 空字符被编码为值 0。翻译字符集的其他元素没有一个�
 *q-char-sequence* 或 *h-char-sequence* 中出现字符 `'` 或 `\` 或字符序列 `/*` 或 `//` 中的任何一个都是由实现定义的语义有条件地支持的，正如在 *h-char-sequence* 中出现字符 `"` 一样。
 
 ---
+
 ## 9. 预处理数字
 
 <pre>
-<em>pp-number</em> : 
+<em>pp-number</em> :
         <em>digit</em>
         <em>. digit</em>
         <em>pp-number identifier-continue</em>
@@ -273,7 +285,9 @@ U+0000 空字符被编码为值 0。翻译字符集的其他元素没有一个�
 预处理数字符号在词法上包括所有整型符号和所有浮点型符号。预处理数没有类型或值；它在成功转换为整型符号或浮点型符号后获得这两种类型。
 
 ---
+
 ## 10. 标识符
+
 <pre>
 <em>identifier</em> :
         <em>identifier-start</em>
@@ -281,17 +295,17 @@ U+0000 空字符被编码为值 0。翻译字符集的其他元素没有一个�
 
 <em>identifier-start</em> :
         <em>nondigit</em>  翻译字符集的元素，具有 Unicode 属性 XID_Start
-            
+
 <em>identifier-continue</em> :
         <em>digit</em>
         <em>nondigit</em>  翻译字符集的元素，具有 Unicode 属性 XID_Continue
-        
+
 <em>nondigit</em> : one of
         a b c d e f g h i j k l m
         n o p q r s t u v w x y z
         A B C D E F G H I J K L M
         N O P Q R S T U V W X Y Z _
-        
+
 <em>digit</em> : one of
         0 1 2 3 4 5 6 7 8 9
 </pre>
@@ -310,10 +324,12 @@ override
 ```
 
 另外，一些作为令牌或预处理令牌出现的标识符保留供 C++ 实现使用，不得用于其他用途。不需要诊断。
-  - 每个包含双下划线 `__` 或以下划线后跟大写字母开头的标识符都保留给实现以供任何使用。
-  - 每个以下划线开头的标识符都保留给实现作为全局命名空间中的名称使用。
+
+- 每个包含双下划线 `__` 或以下划线后跟大写字母开头的标识符都保留给实现以供任何使用。
+- 每个以下划线开头的标识符都保留给实现作为全局命名空间中的名称使用。
 
 ---
+
 ## 11. 关键字
 
 <pre>
@@ -344,7 +360,7 @@ consteval       export          private         thread_local
 constexpr       extern          protected       throw       
 ```
 
-上表中所示的标识符保留用作关键字 (也就是说，它们在翻译阶段 7 中被无条件地视为关键字)，但特性令牌除外。`register` 关键字是未使用的，但保留以备将来使用。此外，下表中为某些操作符和标点符号所示的替代表示是保留的，不得用于其他用途。
+上表中所示的标识符保留用作关键字 (也就是说，它们在翻译阶段 7 中被无条件地视为关键字)，但特性令牌除外。`register` 关键字是未使用的，但保留以备将来使用。此外，下表中为某些运算符和标点符号所示的替代表示是保留的，不得用于其他用途。
 
 ```c++
 and             not_eq        
@@ -356,9 +372,10 @@ not
 ```
 
 ---
+
 ## 12. 运算符和标点符
 
-C++ 程序的词法表示包括许多预处理标记，这些标记在预处理程序的语法中使用，或者被转换为操作符和标点符号的标记。在翻译阶段 7 中，每个操作符或标点符被转换为单个标记。
+C++ 程序的词法表示包括许多预处理标记，这些标记在预处理程序的语法中使用，或者被转换为运算符和标点符号的标记。在翻译阶段 7 中，每个运算符或标点符被转换为单个标记。
 
 <pre>
 <em>preprocessing-op-or-punc</em> :
@@ -366,7 +383,7 @@ C++ 程序的词法表示包括许多预处理标记，这些标记在预处理�
         <em>operator-or-punctuator</em>
 
 <em>preprocessing-operator</em> : one of
-        #       ##      %:      %:%:
+        #       ##      %:      %:%
 
 <em>operator-or-punctuator</em> : one of
         {       }       [       ]       (       )
@@ -381,7 +398,9 @@ C++ 程序的词法表示包括许多预处理标记，这些标记在预处理�
 </pre>
 
 ---
+
 ## 13. 字面值
+
 ### 13.1 字面值的分类
 
 <pre>
@@ -395,9 +414,10 @@ C++ 程序的词法表示包括许多预处理标记，这些标记在预处理�
         <em>user-defined-literal</em>
 </pre>
 
-当作为表达式出现时，字面量具有类型和值类别。
+当作为表达式出现时，字面值具有类型和值类别。
 
 >---
+>
 ### 13.2 整数字面值
 
 <pre>
@@ -422,7 +442,7 @@ C++ 程序的词法表示包括许多预处理标记，这些标记在预处理�
 
 <em>hexadecimal-literal</em> :
         <em>hexadecimal-prefix hexadecimal-digit-sequence</em>
-        
+
 <em>binary-digit</em> : one of
         0 1
 
@@ -434,7 +454,7 @@ C++ 程序的词法表示包括许多预处理标记，这些标记在预处理�
 
 <em>hexadecimal-prefix</em> : one of
         0x 0X
-    
+
 <em>hexadecimal-digit-sequence</em> :
         <em>hexadecimal-digit</em>
         <em>hexadecimal-digit-sequence ’<sub>opt</sub> hexadecimal-digit</em>
@@ -483,6 +503,7 @@ C++ 程序的词法表示包括许多预处理标记，这些标记在预处理�
 除了包含 *size-suffix* 的整型字面值，如果整型字面值的值不能用其列表中的任何类型表示，而扩展的整型类型可以表示其值，则它可以具有扩展的整型类型。如果整型字面值列表中的所有类型都是有符号的，则扩展的整型类型是有符号的。如果整型列表中的所有类型都是无符号的，则扩展整数类型是无符号的。如果列表同时包含有符号类型和无符号类型，则扩展整数类型可以是有符号类型或无符号类型。如果整型不能用任何允许的类型表示，则程序是格式错误的。带有 `z` 或 `Z` 后缀的整型字面值如果不能用 `std::size_t` 表示，则是格式错误的。
 
 >---
+>
 ### 13.3 字符字面值
 
 <pre>
@@ -495,48 +516,48 @@ C++ 程序的词法表示包括许多预处理标记，这些标记在预处理�
 <em>c-char-sequence</em> :
         <em>c-char</em>
         <em>c-char-sequence c-char</em>
-        
+
 <em>c-char</em> :
         <em>basic-c-char</em>
         <em>escape-sequence</em>
         <em>universal-character-name</em>
 
-<em>basic-c-char</em> : 
+<em>basic-c-char</em> :
         翻译字符集的任何成员，除了 U+0027 撇号、U+005C 回车符或换行符
 
-<em>escape-sequence</em> : 
+<em>escape-sequence</em> :
         <em>simple-escape-sequence</em>
         <em>numeric-escape-sequence</em>
         <em>conditional-escape-sequence</em>
 
-<em>simple-escape-sequence</em> : 
+<em>simple-escape-sequence</em> :
         \ <em>simple-escape-sequence-char</em>
 
 <em>simple-escape-sequence-char</em> : one of
         ’ " ? \ a b f n r t v
 
-<em>numeric-escape-sequence</em> : 
+<em>numeric-escape-sequence</em> :
         <em>octal-escape-sequence</em>
         <em>hexadecimal-escape-sequence</em>
 
-<em>simple-octal-digit-sequence</em> : 
+<em>simple-octal-digit-sequence</em> :
         <em>octal-digit</em>
         <em>simple-octal-digit-sequence octal-digit</em>
 
-<em>octal-escape-sequence</em> : 
+<em>octal-escape-sequence</em> :
         \ <em>octal-digit</em>
         \ <em>octal-digit octal-digit</em>
         \ <em>octal-digit octal-digit octal-digit</em>
         \o{ <em>simple-octal-digit-sequence</em> }
 
-<em>hexadecimal-escape-sequence</em> : 
+<em>hexadecimal-escape-sequence</em> :
         \x <em>simple-hexadecimal-digit-sequence</em>
         \x{ <em>simple-hexadecimal-digit-sequence</em> }
 
-<em>conditional-escape-sequence</em> : 
+<em>conditional-escape-sequence</em> :
         \ <em>conditional-escape-sequence-char</em>
 
-<em>conditional-escape-sequence-char</em> : 
+<em>conditional-escape-sequence-char</em> :
         基本字符集的任何成员，它不是八进制数字、简单转义序列字符或字符 N, o, u, U, 或 x
 </pre>
 
@@ -553,14 +574,15 @@ C++ 程序的词法表示包括许多预处理标记，这些标记在预处理�
 | `u`      | UTF-16 字符字面值 | `char16_t` | UTF-16         | `u'y'`   |
 | `U`      | UTF-32 字符字面值 | `char32_t` | UTF-32         | `U'z'`   |
 
-在翻译阶段 4 中，*character-literal* 的值是使用在翻译阶段 7 中 *character-literal* 类型的可表示值的范围来确定的。多字符字面值有一个实现定义的值。任何其他类型的字符字面量的值由如下方式确定：
-  - 由单个 *basic-c-char*、*simple-escape-sequence* 或 *universal-character-name* 组成的 *c-char-sequence* 的字符字面量是指定字符的编码单位值，用该字符字面量的相关字符编码进行编码。如果指定的字符在文字的关联字符编码中缺乏表示，或者如果它不能被编码为单个代码单元，则程序是格式错误的。
-  - 由单个数字转义序列组成的 *c-char-sequence* 的字符字面量的值如下：
-    - 设 *v* 为整数值，由八进制转义序列中包含的八进制数字序列表示，或由十六进制转义序列中包含的十六进制数字序列表示。
-    - 如果 *v* 没有超出字符字面值类型的可表示值的范围，则该值为 *v*。
-    - 否则，如果字符字面值的编码前缀不存在或为 `L`，并且 *v* 不超过字符字面值类型的基础类型对应的无符号类型的可表示值的范围，则该值为字符字面值类型 `T` 中与 `v` 模 2<sup>*N*</sup> 相等的唯一值，其中 *N* 为 `T` 的宽度。
-    - 否则，程序格式错误。
-  - 由单个条件转义序列组成的 *c-char-sequence* 的字符字面量是有条件支持的，并且具有实现定义的值。
+在翻译阶段 4 中，*character-literal* 的值是使用在翻译阶段 7 中 *character-literal* 类型的可表示值的范围来确定的。多字符字面值有一个实现定义的值。任何其他类型的字符字面值的值由如下方式确定：
+
+- 由单个 *basic-c-char*、*simple-escape-sequence* 或 *universal-character-name* 组成的 *c-char-sequence* 的字符字面值是指定字符的编码单位值，用该字符字面值的相关字符编码进行编码。如果指定的字符在文字的关联字符编码中缺乏表示，或者如果它不能被编码为单个代码单元，则程序是格式错误的。
+- 由单个数字转义序列组成的 *c-char-sequence* 的字符字面值的值如下：
+  - 设 *v* 为整数值，由八进制转义序列中包含的八进制数字序列表示，或由十六进制转义序列中包含的十六进制数字序列表示。
+  - 如果 *v* 没有超出字符字面值类型的可表示值的范围，则该值为 *v*。
+  - 否则，如果字符字面值的编码前缀不存在或为 `L`，并且 *v* 不超过字符字面值类型的基础类型对应的无符号类型的可表示值的范围，则该值为字符字面值类型 `T` 中与 `v` 模 2<sup>*N*</sup> 相等的唯一值，其中 *N* 为 `T` 的宽度。
+  - 否则，程序格式错误。
+- 由单个条件转义序列组成的 *c-char-sequence* 的字符字面值是有条件支持的，并且具有实现定义的值。
 
 下表中指定了由简单转义序列指定的字符。为了与 ISO C++ 2014 和 ISO C 兼容，支持对问号使用转义序列。
 
@@ -579,6 +601,7 @@ C++ 程序的词法表示包括许多预处理标记，这些标记在预处理�
 | U+0022  | quotation mark       | \"       |
 
 >---
+>
 ### 13.4 浮点字面值
 
 <pre>
@@ -640,6 +663,7 @@ C++ 程序的词法表示包括许多预处理标记，这些标记在预处理�
 如果缩放后的值不在其类型的可表示值范围内，则程序格式错误。否则，浮点字面值的值是可表示的缩放值，否则以实现定义的方式选择最接近缩放值的较大或较小的可表示值。
 
 >---
+>
 ### 13.5 字符串字面值
 
 <pre>
@@ -688,11 +712,137 @@ C++ 程序的词法表示包括许多预处理标记，这些标记在预处理�
 | `u`      | UTF-16 字符串    | `const char16_t[n]` | UTF-16       | `u"UTF-16 string"`<br>`uR"y(UTF-16 raw string)y"` |
 | `U`      | UTF-32 字符串    | `const char32_t[n]` | UTF-32       | `U"UTF-32 string"`<br>`UR"z(UTF-32 raw string)z"` |
 
-
 前缀中有 *R* 的字符串字面值是原始字符串字面值。*d-char-sequence* 用作分隔符。原始字符串的终止 *d-char-sequence* 与初始 *d-char-sequence* 是相同的字符序列。一个 *d-char-sequence* 最多包含 16 个字符。
 
-字符 `(` 和 `)` 允许出现在原始字符串中。因此，`R"delimiter((alb))delimiter"` 等价于 `"(alb)"`。原始字符串字面值中的换行会导致执行字符串字面值中的换行。假设在下面的例子中行首没有空格，`assert` 将会成功:
+字符 `(` 和 `)` 允许出现在原始字符串中。因此，`R"delimiter((alb))delimiter"` 等价于 `"(alb)"`。原始字符串字面值中的换行会导致执行字符串字面值中的换行。假设在下面的例子中行首没有空格，`assert` 将会成功：
 
-## end 
+```c++
+const char* p = R"(a\
+b
+c)";
+assert(std::strcmp(p,"a\\\nb\nc") == 0);
+```
 
-接下来你会翻译我说的每句英文为中文 
+常规字符串字面值和 UTF-8 字符串字面值也被称为窄字符串字面值。
+
+相邻字符串字面值序列的公共编码前缀按如下方式两两确定:如果两个字符串字面值具有相同的编码前缀，则公共编码前缀为该编码前缀。如果一个字符串字面值没有编码前缀，则通用的编码前缀是另一个字符串字面值的编码前缀。其他任何组合都是格式错误的。原始字符串字面值对公共编码前缀的确定没有影响。
+
+在翻译阶段 6 中，相邻的字符串字面值被连接起来。保留单个字符串字面值内容的词法结构和分组。
+
+| Source      | Means   | Source       | Means   | Source       | Means   |
+| :---------- | :------ | :----------- | :------ | :----------- | :------ |
+| `u"a" u"b"` | `u"ab"` | `U"a"  U"b"` | `U"ab"` | `L"a"  L"b"` | `L"ab"` |
+| `u"a" "b"`  | `u"ab"` | `U"a"  "b"`  | `U"ab"` | `L"a"  "b"`  | `L"ab"` |
+| `"a" u"b"`  | `u"ab"` | `"a"  U"b"`  | `U"ab"` | `"a"  L"b"`  | `L"ab"` |
+
+对字符串字面值求值会得到一个具有静态存储时间的字符串字面值对象。字符串字面值对象可能是非唯一的。字符串字面值的连续求值是否产生相同或不同的对象是未指定的。试图修改字符串字面值对象的效果是未定义的。
+
+字符串字面值对象初始化时，使用对应于字符串字面值的 *s-chars* (最初来自非原始字符串字面值) 和 *r-chars* (最初来自原始字符串字面值) 序列的代码单元值序列，加上一个终止的 U+0000 NULL 字符，顺序如下：
+- 由 *basic-s-chars*、*r-chars*、简单转义序列和通用字符名称组成的每个连续序列表示的字符序列使用字符串字面值的相关字符编码编码为代码单元序列。如果一个字符在相关的字符编码中缺乏表示，则程序是格式错误的。没有字符缺少任何 Unicode 编码形式的表示。在对有状态字符编码进行编码时，实现应该对从初始编码状态开始的第一个这样的序列进行编码，并对从先前序列的最终编码状态开始的后续序列进行编码。编码后的码元序列可以不同于独立编码每个字符所获得的码元序列。
+- 每个数字转义序列提供一个值如下的代码单元：
+  - 设 *v* 为整数值，由八进制转义序列中包含的八进制数字序列表示，或由十六进制转义序列中包含的十六进制数字序列表示。
+  - 如果 *v* 没有超出字符串字面值的数组元素类型的可表示值范围，则该值为 *v*。
+  - 否则，如果字符串字面值的编码前缀不存在或为 `L`，并且 *v* 没有超过字符串字面值的数组元素类型的基础类型对应的无符号类型的可表示值的范围，则该值是字符串字面值的数组元素类型 `T` 中与 *v* 模 2<sup>*N*</sup> 相等的唯一值，其中 *N* 是 `T` 的宽度。
+  - 否则，程序格式错误。
+  - 当编码有状态字符编码时，这些序列应该对编码状态没有影响。
+- 每个条件转义序列提供一个实现定义的代码单元序列。在编码有状态字符编码时，这些序列对编码状态的影响由实现定义。
+
+>---
+### 13.6 未求值字符串
+
+<pre>
+<em>unevaluated-string</em> : 
+        <em>string-literal</em>
+</pre>
+
+未求值字符串不应有编码前缀。有未求值字符串中的每个通用字符名称和每个简单转义序列都由它所表示的翻译字符集的成员替换。包含数字转义序列或条件转义序列的未求值字符串是格式错误的。未求值字符串永远不会被求值，它的解释取决于它出现的上下文。
+
+>---
+### 13.7 布尔字面值
+
+<pre>
+<em>boolean-literal</em> : 
+        false
+        true
+</pre>
+
+布尔字面值是关键字 `false` 和 `true`。这样的字面值具有 `bool` 类型。
+
+>---
+### 13.8 指针字面值
+
+<pre>
+<em>pointer-literal</em> : 
+        <em>nullptr</em>
+</pre>
+
+指针字面值是关键字 `nullptr`。它的类型 `std::nullptr_t`。`std::nullptr_t` 是一个不同的类型，既不是指针类型，也不是指向成员的指针类型。相反，这种类型的右值是空指针常量，可以转换为空指针值或空成员指针值。
+
+>---
+### 13.9 用户定义字面值
+
+<pre>
+<em>user-defined-literal</em> :
+        <em>user-defined-integer-literal</em>
+        <em>user-defined-floating-point-literal</em>
+        <em>user-defined-string-literal</em>
+        <em>user-defined-character-literal</em>
+
+<em>user-defined-integer-literal</em> :
+        <em>decimal-literal ud-suffix</em>
+        <em>octal-literal ud-suffix</em>
+        <em>hexadecimal-literal ud-suffix</em>
+        <em>binary-literal ud-suffix</em>
+
+<em>user-defined-floating-point-literal</em> : 
+        <em>fractional-constant exponent-part<sub>opt</sub> ud-suffix</em>
+        <em>digit-sequence exponent-part ud-suffix</em>
+        <em>hexadecimal-prefix hexadecimal-fractional-constant binary-exponent-part ud-suffix</em>
+        <em>hexadecimal-prefix hexadecimal-digit-sequence binary-exponent-part ud-suffix</em>
+
+<em>user-defined-string-literal</em> :
+        <em>string-literal ud-suffix</em>
+
+<em>user-defined-character-literal</em> : 
+        <em>character-literal ud-suffix</em>
+
+<em>ud-suffix</em> :
+        <em>identifier</em>
+</pre>
+
+如果一个令牌同时匹配用户定义的字面值和另一种字面值类型，它被视为后者。`123_km` 是用户定义的字面值，而 `12LL` 是整型字面值。在用户定义的字面值中，在 *ud-suffix* 之前的语法非终结符被认为是可以匹配该非终结符的最长字符序列。
+
+用户定义的字面值被视为对字面运算符或字面运算符模板的调用。要确定对给定的带有 *ud-suffix* *X* 的用户定义字面值 *L* 的调用的形式，首先设 *S* 为对字面值后缀标识符为 *X* 的 *literal-operator-id* 进行非限定查找所找到的声明集。*S* 不能为空。
+
+如果 *L* 是用户定义的整型字面值，则设 *n* 为不带 *ud-suffix* 的字面值。如果 *S* 包含一个字面值运算符当参数类型为 `unsigned long long` 时，字面值 *L* 被视为 `operator ""X (n ULL)` 形式的调用。否则，*S* 必须包含原始字面值运算符或数字字面值运算符模板，但不能同时包含两者。如果 *S* 包含原始字面值运算符，则字面值 *L* 被视为 `operator ""X ("n ")` 形式的调用。否则 (*S* 包含一个数字字面值运算符模板)，*L* 被视为对 `operator ""X <'c1', 'c2', ... 'ck'>()` 形式的调用，其中 *n* 为源字符序列 `c1c2...ck`，序列 `c1c2...ck` 只能包含基本字符集中的字符。
+
+如果 *L* 是用户定义的浮点字面值，则让 *f* 为不带 *ud-suffix* 的字面值。如果 *S* 包含参数类型为 `long double` 的字面值运算符，则字面值 *L* 将被视为 `operator ""X (f L)` 形式的调用。否则，*S* 必须包含原始字面值运算符或数字字面值运算符模板，但不能同时包含两者。如果 *S* 包含原始字面值运算符，则字面值 *L* 被视为 `operator ""X ("f ")` 形式的调用。否则 (*S* 包含一个数字字面值运算符模板)，*L* 被视为对 `operator ""X <'c1', 'c2', ... 'ck'>()` 形式的调用，其中 *f* 为源字符序列 `c1c2...ck`，序列 `c1c2...ck` 只能包含基本字符集中的字符。
+
+如果 *L* 是用户定义的字符串字面值，则设 *str* 为不带 *ud-suffix* 的字面值，并设 *len* 为 *str* 中的代码单元数 (即，其长度不包括终止的 `null` 字符)。如果 *S* 包含具有非类型模板形参的文字运算符模板，其中 *str* 是格式良好的模板实参，则字面值 *L* 将被视为对 `operator ""X <str >()` 形式的调用。否则，字面值 *L* 将被视为对 `operator ""X (str , len )` 形式的调用。
+
+如果 *L* 是用户定义的字符字面值，则让 *ch* 是不带 *ud-suffix* 的字面值。*S* 应包含一个字面值运算符，其唯一的形参类型为 *ch*，而字面值 *L* 被视为 `operator ""X (ch )` 形式的调用。
+
+```c++
+long double operator ""_w(long double);
+std::string operator ""_w(const char16_t*, std::size_t);
+unsigned operator ""_w(const char*);
+int main() 
+{
+    1.2_w;      // calls operator ""_w(1.2L)
+    u"one"_w;   // calls operator ""_w(u"one", 3)
+    12_w;       // calls operator ""_w("12")
+    "two"_w;    // error: no applicable literal operator
+}
+```
+
+在翻译阶段 6 中，相邻的字符串字面值被连接起来，为此，用户定义的字符串字面值被认为是字符串字面值。在连接过程中，删除并忽略 *ud-suffix*，连接过程如 13.5 所述。在第 6 阶段结束时，如果字符串字面值是至少包含一个用户定义字符串字面值的串联结果，则所有参与的用户定义字符串字面值应具有相同的 *ud-suffix*，并且该后缀应用于串联结果。
+
+```c++
+int main() 
+{
+    L"A" "B" "C"_x;     // OK, same as L"ABC"_x
+    "P"_x "Q" "R"_y;    // error: two different ud-suffixes
+}
+```
+
+---
