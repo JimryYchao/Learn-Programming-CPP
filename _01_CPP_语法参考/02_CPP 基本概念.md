@@ -1,14 +1,199 @@
 # CPP：基本概念
 
-本节介绍 C++ 语言的基本概念。C++ 的一个实体 (*Entity*) 可以是一个值、对象、引用、结构化绑定、函数、枚举数、类型、类成员、位字段、模板、模板专门化、命名空间、或包等。一个名称可以是 *identifier*, *operator-function-id*, *literal-operator-id* 或 *conversion-function-id*。
+本节介绍 C++ 语言的基本概念。C++ 的一个实体 (*Entity*) 可以是一个值、对象、引用、结构化绑定、函数、枚举数、类型、类成员、位字段、模板、模板专门化、命名空间、或包等。
+
+## 1. 声明与定义
+
+一个名称可以是 *identifier*, *operator-function-id*, *literal-operator-id* 或 *conversion-function-id*。
+
+每个名称都由声明引入，它可以是
+- 名称声明、块声明或成员声明：
+- 初始化声明符
+- 结构化绑定声明中的标识符
+- 初始化捕获
+- 条件与声明符
+- 成员声明器
+- 使用声明器
+- 参数声明
+- 类型参数
+- 引入名称的详细类型说明符
+- 类说明符
+- 枚举说明符或枚举定义
+- 异常声明
+- 注入类的隐式声明
+
+实体 *E* 由声明 *E* 引入的名称（如果有）表示，或者由指定 *E* 的声明引入的 *typedef-name* 表示。变量是通过声明非静态数据成员或对象的引用引入的，变量名（如果有）表示引用或对象。局部实体是一个具有自动存储时间的变量，一个结构化绑定对应的变量就是这样的一个实体，或者是 *this* 对象。有些名称表示类型或模板。通常，每当遇到一个名称时，在继续解析包含该名称的程序之前，有必要确定该名称是否表示这些实体之一。确定这一点的过程称为名称查找。
+
+若两个名称相同，则需满足：
+- 它们是由相同字符序列组成的标识符，或者
+- 它们是由相同的操作符组成的 *operator-function-id*，或
+- 它们是由等价类型组成的 *conversion-function-ids*，或
+- 它们是由相同的字面值后缀标识符组成的 *literal-operator-ids*。
+
+在多个翻译单元中使用的名称可能潜在地引用这些翻译单元中的同一实体，这取决于每个翻译单元中指定的名称的链接。
+
+声明可以 (重新) 在翻译单元中引入一个或多个名称和 / 或实体。如果是，则声明指定这些名称的解释和语义属性。如果一个实体或 *typedef-name* *X* 的声明可以从它到达另一个 *X* 的声明，那么它就是 *X* 的重新声明。声明的效力还包括：
+- 静态断言
+- 控制模板实例化
+- 指示构造函数的模板实参推导
+- 使用特性
+- 在空声明的情况下什么都不做
+
+由声明声明的每个实体也由该声明定义，除非：
+- 它声明一个函数而不指定函数体
+- 它包含 `extern` 说明符或 *linkage-specification*，且既没有初始化式也没有函数体
+- 它在类定义中声明非内联静态数据成员
+- 它在类定义之外声明一个静态数据成员，变量在类中使用 `constexpr` 说明符定义（已弃用）
+- 它是一个详细的类型说明符
+- 它是一个 `opaque-enum-declaration`
+- 它是一个模板形参
+- 它是函数声明器中的形参声明，而不是函数定义的声明器
+- 它是一个类型定义声明
+- 它是一个别名声明
+- 它是一个 *using* 声明
+- 它是一个 *deduction-guide*
+- 它是一个 *static_assert* 声明
+- 它是一个特性声明
+- 它是一个空声明
+- 它是一个 *using* 指令
+- 它是一个 *using*-*enum* 声明
+- 它是模板声明，其 *template-head* 后面没有概念定义或定义函数、类、变量或静态数据成员的声明
+- 它是显式实例化声明，或
+- 它是一个显式专门化，其声明不是定义
+
+声明被称为它所定义的每个实体的定义。
+
+```c++
+int a;                          // defines a
+extern const int c = 1;         // defines c
+int f(int x) { return x+a; }    // defines f and defines x
+struct S { int a; int b; };     // defines S, S::a, and S::b
+struct X {                      // defines X
+    int x;                      // defines non-static data member x
+    static int y;               // declares static data member y
+    X(): x(0) { }               // defines a constructor of X
+};
+int X::y = 1;                   // defines X::y
+enum { up, down };              // defines up and down
+namespace N { int d; }          // defines N and N::d
+namespace N1 = N;               // defines N1
+X anX;                          // defines anX
+```
+
+然而以下这些只是声明：
+
+```c++
+extern int a;               // declares a
+extern const int c;         // declares c
+int f(int);                 // declares f
+struct S;                   // declares S
+typedef int Int;            // declares Int
+extern X anotherX;          // declares anotherX
+using N::d;                 // declares d
+```
+
+在某些情况下，C++ 实现隐式地定义了默认构造函数、复制构造函数、移动构造函数、复制赋值操作符、移动赋值操作符或 *destructor* 成员函数。
+
+```c++
+#include <string>
+struct C {
+    std::string s;  // std::string is the standard library class (23.4)
+};
+int main() {
+    C a;
+    C b = a;
+    b = a;
+}
+// 实现将隐式定义函数，使 C 的定义等同于
+struct C {
+    std::string s;
+    C() : s() { }
+    C(const C& x): s(x.s) { }
+    C(C&& x): s(static_cast<std::string&&>(x.s)) { }
+    //      : s(std::move(x.s)) { }
+    C& operator=(const C& x) { s = x.s; return *this; }
+    C& operator=(C&& x) { s = static_cast<std::string&&>(x.s); return *this; }
+    //                  { s = std::move(x.s); return *this; }
+    ~C() { }
+};
+```
+
+类名也可以通过详细的类型说明符隐式声明。
+
+在对象的定义中，该对象的类型不能是不完整类型、抽象类类型或其数组 (可能是多维的)。
+
+---
+## 2. One-Definition 规则
+
+以下每一项都被称为可定义项：
+- 类类型
+- 枚举类型
+- 函数
+- 变量
+- 模板实体
+- 形参的默认实参 (用于给定范围内的函数)，或
+- 默认模板参数
+
+任何翻译单位不得对任何可定义的项目包含一个以上的定义。除非是未求值的操作数、其子表达式或此类上下文中初始化或转换序列中的转换，否则表达式或转换可能被求值。表达式 *E* 的可能结果集定义如下：
+- 如果 *E* 是 *id-expression*，则该集合只包含 *E*。
+- 如果 *E* 是一个带有数组操作数的下标操作，则该集合包含该操作数的可能结果。
+- 如果 *E* 是形式为 *E*<sub>1</sub> . `template`<sub>opt</sub> *E*<sub>2</sub> 命名的一个非静态数据成员的类成员访问表达式，则该集合包含 *E*<sub>1</sub> 的潜在结果。
+- 如果 *E* 是命名静态数据成员的类成员访问表达式，则该集合包含指定数据成员的 *id-expression*。
+- 如果 *E* 是 *E*<sub>1</sub> .* *E*<sub>2</sub> 形式的成员指针表达式，则该集合包含 *E*<sub>1</sub>的可能结果。
+- 如果 *E* 的形式为 (*E*<sub>1</sub>)，则该集合包含 *E*<sub>1</sub> 的潜在结果。
+- 如果 *E* 是左值条件表达式，则该集合是第二个和第三个操作数的可能结果集合的并集。
+- 如果 *E* 是逗号表达式，则该集合包含右操作数的可能结果。
+- 否则，该集合为空。
+
+此集合是 *id-expression* 的集合 (可能为空)，每个 *id-expression* 要么是 *E*，要么是 *E* 的子表达式。
+
+在下面的示例中，`n` 的初始化式的潜在结果集包含第一个 `S::x` 子表达式，但不包含第二个 `S::x` 子表达式。
+
+```c++
+struct S { static const int x = 0; };
+const int &f(const int &r);
+int n = b ? (1, S::x)           // S::x is not odr-used here
+        : f(S::x);              // S::x is odr-used here, so a definition is required
+```
+
+函数通过表达式或转换进行命名，具体如下：
+- 如果函数是作为形成该表达式或转换的一部分执行的重载解析中的重载集的选定成员，则通过表达式或转换对函数进行命名，除非它是纯虚函数，并且表达式不是以显式限定的名称命名函数的 *id-expression*，或者表达式形成了成员指针。这包括获取函数的地址，对命名函数的调用，运算符重载，用户定义的转换，*new-expressions* 的分配函数，以及非默认初始化。即使实际上由实现省略了调用，也认为选择复制或移动类类型对象的构造函数是由表达式或转换命名的。
+- 如果它是由重载解析选定的分配函数的单一匹配的 *deallocation* 函数，那么类的 *deallocation* 函数由 *new-expression* 命名。
+- 如果它是选定的常规 *deallocation* 函数，那么类的 *deallocation* 函数由 *delete-expression* 命名。
+
+如果表达式是表示它的 *id-expression*，那么变量由表达式命名。由潜在求值表达式 *E* 命名的变量 `x` 被 *E* *odr-used* 使用，除非
+- `x` 是可在常量表达式中使用的引用，或
+- `x` 是可在常量表达式中使用并且没有可变子对象的非引用类型变量，且 *E* 是应用 *lvalue-to-rvalue* 转换的非易失性限定非类类型表达式的潜在结果集的元素，或
+- `x` 是非引用类型的变量，且 *E* 是应用 *lvalue-to-rvalue* 转换的丢弃值表达式的潜在结果集的元素。
+
+如果结构化绑定出现为潜在求值表达式，则其被 *odr-used*。
+
+如果 `this` 作为潜在求值表达式出现（包括作为非静态成员函数的主体中的隐式转换的结果），则 `*this` 被 *odr-used*。
+
+如果虚成员函数不是纯的，则它被 *odr-used*。如果函数由潜在求值表达式或转换命名，则函数被 *odr-used*。类的非放置分配或 *deallocation* 函数由该类的构造函数的定义 *odr-used*。类的非放置 *deallocation* 函数由该类的析构函数的定义 *odr-used*，或者由在虚析构函数的定义点的查找选定。16
+9 类中的赋值运算符函数由另一个类的隐式定义的复制赋值或移动赋值函数 odr 使用，如 11.4.6 中所述。构造函数对类进行 odr 使用，如 9.4 中所述。如果可能调用类的析构函数，则析构函数被 odr 使用（11.4.7）。
+局部实体（6.1）在范围（6.4.1）中是 odr 可用的，如果：
+- （10.1）局部实体不是 *this，或者存在封闭的类或非 lambda 函数参数范围，如果最内层的这样的范围是函数参数范围，它对应于非静态成员函数，和
+- （10.2）对于在实体引入的点和范围之间的每个干预范围（6.4.1）（其中 *this 被认为是在最内层的封闭类或非 lambda 函数定义范围内引入的），要么：
+- （10.2.1）干预范围是块范围，或
+- （10.2.2）干预范围是 lambda 表达式的函数参数范围，该表达式具有命名实体的简单捕获或具有捕获默认值，且 lambda 表达式的块范围也是干预范围。
+
+```c++
+void f(int n) {
+    [] { n = 1; };              // error: n is not odr-usable due to intervening lambda-expression
+    struct A {
+        void f() { n = 2; }     // error: n is not odr-usable due to intervening function definition scope
+    };
+    void g(int = n);            // error: n is not odr-usable due to intervening function parameter scope
+    [=](int k = n) {};          // error: n is not odr-usable due to being
+                                // outside the block scope of the lambda-expression
+    [&] { [n]{ return n; }; };  // OK
+}
+```
 
 
- 
-## 声明与定义
 
 
-
-
-## 作用域
+## 3. 作用域
 
 ## 
