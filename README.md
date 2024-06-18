@@ -1,2 +1,13 @@
-- 本参考以 C++23 标准为主。 
-- 
+## CPP programming technology summary
+
+```cpp
+#include <iostream>
+int main()
+{
+    std::cout << "Hello World!\n";
+}
+```
+
+> References
+
+- [CPP draft](https://github.com/cplusplus/draft)
