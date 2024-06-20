@@ -185,3 +185,127 @@ int main( int argc, char *argv[], char *envp[] )
     }
 }
 ```
+
+---
+### 特定于 MS C++ 内置类型
+
+特定于 Microsoft：`char` 类型的变量将提升到 `int`；
+
+特定于 Microsoft：`wchar_t` 是原生类型。`__wchar_t` 类型是本机 `wchar_t` 类型的 Microsoft 专用同义词。
+
+特定于 Microsoft：`long double` 和 `double` 的表示形式完全相同。
+
+特定于 Microsoft：整数类型包括特定宽度的 `__int8`、`__int16`、`__int32` 和 `__int64` 类型。`__int8` 与 `char` 同义，`__int16` 与 `short` 同义，`__int32` 与 `int` 同义，`__int64` 与 `long long` 同义。
+
+Microsoft 专用：`__ptr32` 表示 32 位系统中的本机指针，而 `__ptr64` 表示 64 位系统中的本机指针。在 32 位系统中，`__ptr64` 截断为 32 位。在 64 位系统中，`__ptr32` 强制转换为 64 位。
+
+```c++
+#include <cstdlib>
+#include <iostream>
+
+int main()
+{
+    using namespace std;
+
+    int * __ptr32 p32;
+    int * __ptr64 p64;
+
+    p32 = (int * __ptr32)malloc(4);
+    *p32 = 32;
+    cout << *p32 << endl;
+
+    p64 = (int * __ptr64)malloc(4);
+    *p64 = 64;
+    cout << *p64 << endl;
+}
+```
+
+---
+### MS C++ 属性
+
+在某些情况下，标准属性与编译器特定的 `__declspec` 参数重叠。在 Microsoft C++ 中，可以使用 `[[deprecated]]` 属性而不使用 `__declspec(deprecated)`。`[[deprecated]]` 属性可由任何符合标准的编译器识别。
+
+对于所有其他 `__declspec` 参数（例如 `dllimport` 和 `dllexport`），到目前为止还没有等效的属性，因此必须继续使用 `__declspec` 语法。属性不影响类型系统，也不会改变程序的含义。编译器会忽略它们无法识别的属性值。
+
+在属性列表的范围内，可以使用单个 `using` 引入器为所有名称指定命名空间：
+
+```c++
+void g() {
+    [[using rpr: kernel, target(cpu,gpu)]] 
+    // equivalent to [[ rpr::kernel, rpr::target(cpu,gpu) ]]
+    do task();
+}
+```
+
+>---
+#### MS 特定属性
+
+`[[gsl::suppress(rules)]]` 用于抑制在代码中强制实施准则支持库 (GSL) 规则的检查器发出的警告。使用安装并激活的 CppCoreCheck 代码分析工具编译此代码时，会触发前两个警告。
+- C26494（类型规则 5：始终初始化对象。）
+- C26485（边界规则 3：没有指针衰减的数组。）
+- C26481（边界规则 1：不要使用指针算术。请改用范围。）
+
+```c++
+int main()
+{
+    int arr[10]; // GSL warning C26494 will be fired
+    int* p = arr; // GSL warning C26485 will be fired
+    [[gsl::suppress(bounds.1)]] // This attribute suppresses Bounds rule #1
+    {
+        int* q = p + 1; // GSL warning C26481 suppressed
+        p = q--; // GSL warning C26481 suppressed
+    }
+}
+```
+
+`[[msvc::forceinline_calls]]` 放置在语句或块之上或之前。 它会导致内联启发式尝试 `[[msvc::forceinline]]` 该语句或块中的所有调用：
+
+```c++
+void f() {
+    [[msvc::forceinline_calls]]
+    {
+        foo();
+        bar();
+    }
+    ...
+    [[msvc::forceinline_calls]]
+    bar();
+    foo();
+    // 对 foo 的第一次调用以及对 bar 的两次调用都被视为声明为 __forceinline。 
+    // 对 foo 的第二次调用不会被视为 __forceinline。
+}
+```
+
+`[[msvc::forceinline]]` 当放置在函数声明之前时，`[[msvc::forceinline]]` 与 `__forceinline` 具有相同的含义。
+
+`[[msvc::flatten]]`  与 `[[msvc::forceinline_calls]]` 非常相似，并且可以在相同位置以相同方式使用。 不同之处在于，`[[msvc::flatten]]` 会递归地 `[[msvc::forceinline_calls]]` 其应用范围内的所有调用，直到没有调用为止。 
+
+[[msvc::intrinsic]] 属性告知编译器内联一个元函数，该元函数充当从参数类型到返回类型的命名转换。当该属性出现在函数定义中时，编译器会用简单的强制转换替换对该函数的所有调用。`[[msvc::intrinsic]]` 对其应用到的函数有三个约束：
+- 该函数不能具有递归性；它的主体必须只有一个 `return` 语句，该语句带有从参数类型到返回类型的 `static_cast`。
+- 该函数只能接受单个参数。
+- `/permissive-` 编译器选项是必需的。 
+
+```c++
+// 应用于 my_move 函数的 [[msvc::intrinsic]] 属性使编译器将该函数的调用替换为其主体中的内联静态强制转换
+template <typename T>
+[[msvc::intrinsic]] T&& my_move(T&& t) { return static_cast<T&&>(t); }
+
+void f() {
+    int i = 0;
+    i = my_move(i);
+}  
+```
+
+`[[msvc::noinline]]` 当放置在函数声明之前时，与 `declspec(noinline)` 具有相同的含义。
+
+`[[msvc::noinline_calls]]` 的用法与 `[[msvc::forceinline_calls]]` 相同。它可以放置在任何语句或块之前。它不是强制内联该块中的所有调用，而是对应用到的范围禁用内联。
+
+`[[msvc::no_tls_guard]]` 禁止在首次访问 DLL 中的线程局部变量时检查初始化。仅适用于其后面的特定变量。若要全局禁用检查，请使用 `/Zc:tlsGuards-` 编译器选项。
+
+---
+### MS 运算符
+
+#### safe_cast
+
+`safe_cast` 在 C++/CLI 中用于生成可验证的 MSIL。
+
