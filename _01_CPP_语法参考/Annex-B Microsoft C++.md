@@ -1,4 +1,4 @@
-## Microsoft C++ 补充说明
+## 特定于 Microsoft C++ 的补充说明
 
 
 ---
@@ -187,7 +187,7 @@ int main( int argc, char *argv[], char *envp[] )
 ```
 
 ---
-### 特定于 MS C++ 内置类型
+### 内置类型
 
 特定于 Microsoft：`char` 类型的变量将提升到 `int`；
 
@@ -221,7 +221,7 @@ int main()
 ```
 
 ---
-### MS C++ 属性
+### 属性
 
 在某些情况下，标准属性与编译器特定的 `__declspec` 参数重叠。在 Microsoft C++ 中，可以使用 `[[deprecated]]` 属性而不使用 `__declspec(deprecated)`。`[[deprecated]]` 属性可由任何符合标准的编译器识别。
 
@@ -303,9 +303,52 @@ void f() {
 `[[msvc::no_tls_guard]]` 禁止在首次访问 DLL 中的线程局部变量时检查初始化。仅适用于其后面的特定变量。若要全局禁用检查，请使用 `/Zc:tlsGuards-` 编译器选项。
 
 ---
-### MS 运算符
+### 运算符与表达式
 
 #### safe_cast
 
 `safe_cast` 在 C++/CLI 中用于生成可验证的 MSIL。
 
+
+
+---
+### 语句
+
+#### __if_exists, __if_not_exists 
+
+```c++
+__if_exists ( identifier ) {
+statements
+};
+
+__if_not_exists ( identifier ) {
+statements
+};
+```
+
+`_if_exists` 语句测试指定的标识符是否存在。如果该标识符存在，则执行指定的语句块。
+
+`__if_not_exists` 语句测试指定的标识符是否存在。如果该标识符不存在，则执行指定的语句块。
+
+只将 `__if_exists` 和 `__if_not_exists` 语句应用于简单类型；将语句应用于类的内部或外部的标识符。不要应用于局部变量。仅在函数的主体中使用，在外部，语句仅能测试完全定义的类型。在测试重载函数时，不能测试特定形式的重载。
+
+`__if_exists` 语句的补集是 `__if_not_exists` 语句
+
+```c++
+class C {
+public:
+    void f(int);
+    void f(double);
+};
+
+int main() {
+    __if_not_exists(::g_bFlag) {
+        std::cout << "g_bFlag not exists" << std::endl;
+    }
+    __if_exists(C::f) {
+        std::cout << "C::f exists" << std::endl;
+    }
+}
+// g_bFlag not exists
+// C::f exists
+```

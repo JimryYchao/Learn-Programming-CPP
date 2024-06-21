@@ -791,7 +791,7 @@ int main()
  <!-- TODO -->
 
 >---
-#### 类型转换 TODO
+#### 类型转换
 
 当表达式包含不同内置类型的操作数且不存在显式强制转换时，编译器将使用内置的 “标准转换” 来转换其中一个操作数，从而使类型相匹配。
 
@@ -829,7 +829,6 @@ const_cast<constT>(noconstv)
 reinterpret_cast<T>(v)
 ```
 
->---
 
 ---
 ### 内置类型
@@ -1945,10 +1944,66 @@ int main() {
 #### 算数运算
 
 ```c++
-auto sum = a + b;
+auto add = a + b;
 auto sub = a - b;
 auto mul = a * b;
-auto  
+auto div = a / b;
+auto mod = a & b;   // integer
+auto post = +a;
+auto nega = -a;
+```
+
+在 Microsoft C++ 中，取模表达式的结果的符号始终与第一个操作数的符号相同。
+
+>---
+#### 增量减量运算
+
+```c++
+i++;  // 后缀递增
+i--;  // 后缀递减
+++i;  // 前缀递增
+--i;  // 后缀递增
+```
+
+无法保证后缀运算作为函数或表达式参数按期望的值进行传递；副作用可能发生在表达式求值或参数求值之后。前缀运算的副作用发生在作为传递参数或赋值等操作之前；
+
+```c++
+int i = 10;  // or float
+cout << i++ << endl;  // 10
+cout << i << endl;    // 11
+cout << --i << endl;  // 10
+```
+
+不支持直接对枚举类型或其他用户定义类型执行前缀或后缀运算；可以设置用户定义运算符：
+
+```c++
+enum Compass { North, South, East, West };
+Compass myCompass;
+for( myCompass = North; myCompass != West; myCompass++ ) // Error
+    ;
+
+Compass& operator++(Compass& c) {
+	c = static_cast<Compass>(c + 1);
+	return c;
+}  // 前缀递增
+Compass& operator--(Compass& c) {
+	c = static_cast<Compass>(c - 1);
+	return c;
+}  // 前缀递减
+Compass operator++(Compass& c, int i) {
+	c = static_cast<Compass>(c + i);
+	return c;
+}  // 后缀递增
+Compass operator--(Compass& c, int i) {
+	c = static_cast<Compass>(c - i);
+	return c;
+}  // 后缀递减
+
+Compass myCompass;
+for (myCompass = North; myCompass != West; myCompass++) // ok
+	;
+for (myCompass = North; myCompass != West; ++myCompass) // ok
+	;
 ```
 
 >---
@@ -1975,6 +2030,110 @@ int main() {
 ```
 
 >---
+#### Size-of
+
+```c++
+sizeof ( type-name );
+sizeof unary-expr; 
+sizeof ( unary-expr ); 
+```
+
+`sizeof` 返回给定 `type-name` 或一个一元表达式的字节大小；结果为 `size_t`。`sizeof` 是不求值表达式。
+
+当 `sizeof` 运算符应用于 `class`、`struct` 或 `union` 类型时，结果是该类型对象中的字节数，加上为对齐字边界上的成员而添加的任何填充。结果不一定对应于通过将各个成员的存储需求相加计算出的大小。不计算结构中灵活数组的大小。
+
+`type-name` 不能是函数、位域、未定义类、`void`、动态分配的数组、外部数组、不完整类型或不完整类型名称。
+
+```c++
+sizeof(ClassA);
+sizeof(int);
+sizeof ptr;
+auto arrLength = sizeof array / sizeof array[0]
+```
+
+>---
+#### 成员访问
+
+```c++
+struct X
+{
+	void m_func() {
+		cout << m_num << endl;
+	};
+	int m_num;
+};
+int main() {
+	// 函数成员指针
+	void (X:: * pxfun)() = &X::m_func;
+	int X::* pxnum = &X::m_num;
+
+	X x{0};
+	X* px = new X;
+	
+	// . -> 访问
+	x.m_num = 10;
+	x.m_func();
+	px->m_num = 100;
+	px->m_func();
+
+	// .* ->* 成员指针访问
+	(x.*pxfun)();  // 10
+	x.*pxnum = -10;
+	(px->*pxfun)(); // 100
+	//px->*pxnum = -100;
+}
+```
+
+>---
+#### 范围解析
+
+范围解析运算符 `::` 用于标识和消除在不同范围内使用的标识符。`:: qualified-id` 表示从全局范围查找。
+
+```c++
+namespace NamespaceB {
+    class ClassB {
+    public:
+        int x;
+    };
+}
+namespace NamespaceC{
+    using namespace NamespaceB;
+}
+int main() {
+    NamespaceB::ClassB b_b;
+    NamespaceC::ClassB c_b;
+    b_b.x = 3;
+    c_b.x = 4;
+}
+```
+
+必须使用范围解析运算符来调用类的静态成员。
+
+```c++
+class ClassG {
+public:
+    static int get_x() { return x;}
+    static int x;
+};
+
+int ClassG::x = 6;
+int main() {
+    int gx1 = ClassG::x;
+    int gx2 = ClassG::get_x();
+}
+```
+
+范围解析运算符还可以与区分范围的枚举值一起使用：
+
+```c++
+enum class EnumA{
+    First, Second, Third
+};
+
+EnumA enum_value = EnumA::First;
+```
+
+>---
 #### 赋值运算
 
 ```c
@@ -1998,7 +2157,7 @@ int a |= b;  // a = a xor_eq b
 在 ANSI C 中，赋值表达式的结果不是左值。 这意味着 C 中不允许使用合法的 C++ 表达式 `(a += b) += c`。
 
 >---
-#### 位运算
+#### 按位运算
 
 ```c++
 unsigned char a = 0b10100101;
@@ -2011,16 +2170,34 @@ auto print = [=](unsigned char expr) {
 print(a & b);  // 10000001; 按位与
 print(a | b);  // 11100111; 按位或
 print(a ^ b);  // 01100110; 按位异或
+print(~a);     // 01011010; 按位求补
+```
+
+>---
+#### 移位运算
+
+`<<` 左移用零补齐低位，是逻辑移位；`>>` 右移时，无符号数零补齐高位，有符号数符号位补齐高位 (Microsoft C++ 行为)。
+
+```c++
+unsigned char c1 = 64;
+cout << bitset<8>{ (unsigned __int64)c1 } << endl;		// 01000000
+cout << bitset<8>{ (unsigned __int64)c1 << 1} << endl;	// 10000000
+cout << bitset<8>{ (unsigned __int64)c1 >> 2 } << endl;	// 00010000
+
+signed char c2 = -55;
+cout << bitset<8>{ (unsigned __int64)c2 } << endl;		// 11001001
+cout << bitset<8>{ (unsigned __int64)c2 << 3} << endl;	// 01001000
+cout << bitset<8>{ (unsigned __int64)c2 >> 2 } << endl;	// 11110010
 ```
 
 >---
 #### 强制转换
 
-`()` 类型强制转换提供了用于显式转换对象类型的方法。
+`()` 运算符提供了用于显式转换对象类型的方法。
 
 ```c++
-typeA a = (typeA)vb;
-typeA a = typeA(vb);
+typeA a = (typeA)vb;   // cast 形式的强制类型转换
+typeA a = typeA(vb);   // 显式类型转换
 ```
 
 用户定义的强制转换 `operator type ()`：
@@ -2050,6 +2227,13 @@ int main() {
 	KM d4 = 3.14L;
 	long double d = d1;  // or (long double)d1;
 }
+```
+
+`cast` 语法只能从单个值转换，在强制转换中的类型定义是非法的。显式类型转换可以转换指定多个自变量，例如：
+
+```c++
+struct Point { int x, y; };
+Point p = Point(1, 2);
 ```
 
 有几种特定于 C++ 语言的转换运算符。
@@ -2281,10 +2465,324 @@ int main() {
 }
 ```
 
+> 向上转换和向下转换
+
+从派生类指针到基类指针的转换是一种隐式的向上转换；反过来从基类指针到派生类指针的转换是向下转换，如果有多层继承，可能会导致不明确。
+
+以下示例演示了 `dynamic_cast` 和 `static_cast` 的用法
+
+```c++
+class Base { virtual void f() {}; };
+class DerivedA : public Base { virtual void f() {}; };
+class DerivedB : public Base { virtual void f() {}; };
+class Derived : public DerivedA, public DerivedB {  };
+
+int main() {
+	Derived* d = new Derived;
+	Base* b = new Base;
+	// 向上转换
+	DerivedA* da = static_cast<DerivedA*>(d);
+	DerivedB* db = static_cast<DerivedB*>(d);
+	// 多态的情况下基类不明确
+	// Base * bd = static_cast<Base*>(d);  
+	// Base* bd = dynamic_cast<Base*>(d);  
+
+	// Derived* pd = static_cast<Derived*>(b);  // 无法编译；Derived 包含多个 Base 的实例
+	Derived* pd = dynamic_cast<Derived*>(b); 
+	assert(pd == nullptr); // b 不包含 Derived 的值，返回 nullptr
+	Base* b1 = dynamic_cast<Base*>(da); // ok; 向上
+	Base* b2 = dynamic_cast<Base*>(db); // ok; 向上
+	pd = dynamic_cast<Derived*>(b1);
+	assert(pd != nullptr);  // 向下转换；ok；Base 包含 Derived 的值，且是 DerivedA::Base 到 Derived
+	pd = dynamic_cast<Derived*>(b2);
+	assert(pd != nullptr);  // 向下转换; ok; Base 包含 Derived 的值，且是 DerivedB::Base 到 Derived
+}
+```
+
+>---
+#### 顺序运算符
+
+顺序运算符 `(expr1, expr2)` 始终计算左操作数，并且在计算右操作数之前将完成所有副作用，表达式的类型和值是右操作数的类型和值。
+
+```c++
+int i = 10, b = 20, c= 30;
+i = b, c;  // i = b = 20
+
+i = (b, c); // i = c = 30
+
+i = ((b , c), ++i);   // i = ++i
+```
+
+>---
+#### 条件运算符
+
+```c++
+cond-expr ? true-expr : false-expr
+```
+
+`cond-expr` 必须是整数（`bool`）或指针类型；条件运算的结果是第二个或第三个表达式的计算结果；两者具有相同的类型或兼容类型，或 `void`，或第三个操作数返回 `std::exception`。
+
+```c++
+isRequest ? Handle(httpRequest) : throw exception{};
+```
+
+>---
+#### 关系和相等运算
+
+```c++
+bool rt = a == b;
+bool rt = a != b;
+bool rt = a >= b;
+bool rt = a <= b;
+bool rt = a > b;
+bool rt = a < b;
+```
+
+>---
+#### 逻辑运算
+
+```c++
+bool rt = expr1 && expr2;
+bool rt = expr1 || expr2;
+bool rt = !expr;
+```
+
+逻辑运算符的操作数必须是布尔、整数或指针类型或可以转换为 `bool` 的类型。
+
 
 
 >---
-#### 指针运算
+#### 函数调用和函数调用运算符重载
+
+函数调用运算符 `( argu-list )` 首先对参数列表（如果有）进行求值，参数列表中，首先计算作为实参传递的函数表达式，然后计算任意的参数表达式或默认参数，参数表达式在不确定序列中求值。计算结果可以是函数、函数指针、可调用对象、或对一个对象的引用表达式
+
+函数符号、函数类型、函数指针可以使用函数调用运算符：
+
+```c++
+int func(int i) { return i; }       // 返回 T 的函数 func
+typedef int funcType(int i);        // 函数类型，具有 T (int i) 签名
+typedef int (*funcPointer)(int i);  // 函数指针类型
+typedef int(&funcLv)(int i);        // 函数引用
+typedef int(&& funcRv)(int i);      // 右值
+
+int main() {
+	funcType* f = &func;
+	funcPointer pf = &func;
+	funcLv flv = func;
+	funcRv frv = flv;
+    f(0);
+    pf(1);
+    flv(2);
+    frv(3);
+}
+```
+
+>---
+#### new 分配内存
+
+C++ 支持使用 `new` 和 `delete` 运算符动态分配和解除分配对象，`new` 调用特殊函数 `operetor new`，`delete` 调用特殊函数 `operator delete`。`new` 在堆中为对象分配内存。
+
+```c++
+type-id * pobj = [::] new type-id ( argu? )?;
+type-id * parr = [::] new type-id[size];
+[::] delete pobj;
+[::] delete [] parr;
+```
+
+`new` 尝试分配和初始化指定类型或占位符类型的对象或对象数组，并返回指向对象（或指向数组初始对象）的适当类型化的非零指针。未成功，将返回零或引发异常；可以通过编写自定义异常处理例程并调用 `std::_set_new_handler` 运行时库函数（使用函数名作为其参数）来更改此默认行为。
+
+使用 `new` 为 C++ 类对象分配内存时，将在分配内存后调用对象的构造函数。使用 `delete` 运算符解除由 `new` 运算符分配的内存或数组。`new` 不分配引用类型和函数指针，但可以分配函数指针的数组。
+
+```c++
+type *pt1 = new type;
+type *pt2 = new type(argus);
+const int *cpi = new int(0);
+volatile int *vpi = new int(10);
+char (*pchar)[10] = new char[dim][10];
+int (**p) () = new (int (*[7]) ());
+
+delete cpi;
+delete [] pchar;
+```
+
+`operator new` 的第一个自变量必须为 `size_t` 类型，且返回类型始终为 `void*`。包含用户定义 `operator new` 的类类型调用用户定义 `new`，否则调用全局 `::operator new`；为类定义的 `operator new` 函数是静态成员函数（不能是虚函数），该函数隐藏此类类型的对象的全局 `operator new` 函数。
+
+```c++
+#include <malloc.h>
+#include <memory.h>
+class Blanks
+{
+public:
+    Blanks(){}
+    void *operator new( size_t stAllocateBlock, char chInit );
+};
+void *Blanks::operator new( size_t stAllocateBlock, char chInit )
+{
+    void *pvTemp = malloc( stAllocateBlock );
+    if( pvTemp != 0 )
+        memset( pvTemp, chInit, stAllocateBlock );
+    return pvTemp;
+}
+// For discrete objects of type Blanks, the global operator new function
+// is hidden. Therefore, the following code allocates an object of type
+// Blanks and initializes it to 0xa5
+int main()
+{
+   Blanks *a5 = new(0xa5) Blanks;
+   return a5 != 0;
+}
+```
+
+如果分配请求的内存不足，`operator new` 会引发 `std::bad_alloc` 异常或 `nullptr`。
+
+```c++
+#include <iostream>
+#include <new>
+using namespace std;
+#define BIG_NUMBER 10000000000LL
+
+// 标准 C++ 要求分配器引发 std::bad_alloc 或派生自 std::bad_alloc 的类
+try {
+    int *pI = new int[BIG_NUMBER];
+}
+catch (bad_alloc& ex) {
+    cout << "Caught bad_alloc: " << ex.what() << endl;
+    return -1;
+}
+
+// nothrow new
+int *pI = new(nothrow) int[BIG_NUMBER];
+if ( pI == nullptr ) {
+    cout << "Insufficient memory" << endl;
+    return -1;
+}
+
+// 链接 nothrownew.obj 文件替换全局 operator new
+int *pI = new int[BIG_NUMBER];
+if ( !pI ) {
+    cout << "Insufficient memory" << endl;
+    return -1;
+}
+```
+
+可以为失败的内存分配请求提供处理程序。例如编写自定义恢复例程来处理此类失败。
+
+```c++
+void handler()  {
+	cerr << "Insufficient memory" << endl;
+	throw bad_alloc();
+};
+set_new_handler(&handler);
+int* pI = new int[BIG_NUMBER];
+```
+
+>---
+#### delete 释放内存
+
+`delete` 用以释放 `new` 动态分配的内存块。`delete` 运算符调用 `operator delete` 函数，并将内存释放回可用池。
+
+```c++
+[::] delete cast-expression;       // new ptr
+[::] delete [] cast-expression;    // new arr[N]
+```
+
+*cast-expression* 自变量必须是指向以前分配给使用 `new` 运算符创建的对象的内存块的指针。对其他指针使用 `delete` 行为未定义；但可以对空指针使用 `delete`，因为 `new` 分配失败时也会返回 `nullptr`；被释放的指针取引用行为未定义。
+
+对对象使用 `delete` 将释放其内存。释放 C++ 类对象（`class`、`struct` 或 `union`）的内存时，将在释放该对象的内存之前调用该对象的析构函数（如果有）；其他非类对象调用全局 `::delete`。对可修改的左值使用，则在 `delete` 该对象后未定义其值。
+
+```c++
+struct C {
+public:
+	~C() { cout << "call ~C" << endl; }
+};
+
+int main() {
+	C* pc = new C;
+	C* pac = new C[10];
+
+	::delete [] pac;
+	delete pc;
+}
+```
+
+全局 `operator delete` 函数和类成员 `operator delete` 函数存在两种形式。只能为给定类定义其中的一个 `operator delete` 函数；如果定义，它会隐藏全局 `operator delete` 函数。始终为所有类型的数组调用全局 `operator delete` 函数。对于不是类类型的对象，将调用全局 `delete` 运算符 `::delete`。
+
+```c++
+void operator delete( void * );
+void operator delete( void *, size_t );
+```
+
+下面是一个记录内存的分配和解除分配的用户定义的 `operator new` 和 `operator delete` 函数：
+
+```c++
+#include <iostream>
+using namespace std;
+
+int fLogMemory = 0;      
+int cBlocksAllocated = 0;  // Count of blocks allocated.
+
+// User-defined operator new.
+void* operator new(size_t stAllocateBlock) {
+	if (stAllocateBlock == 0) return nullptr;
+	static int fInOpNew = 0;   // Guard flag.
+	if (fLogMemory && !fInOpNew) {
+		fInOpNew = 1;
+		cout << "Memory block " << (++cBlocksAllocated)
+			<< " allocated for " << stAllocateBlock
+			<< " bytes\n";
+		fInOpNew = 0;
+	}
+	return malloc(stAllocateBlock);
+}
+
+// User-defined operator delete.
+void operator delete(void* pvMem) {
+	if (!pvMem) return;
+	static int fInOpDelete = 0;   // Guard flag.
+	if (fLogMemory && !fInOpDelete) {
+		fInOpDelete = 1;
+		cout << "Memory block " << cBlocksAllocated--
+			<< " deallocated\n";
+		fInOpDelete = 0;
+	}
+	free(pvMem);
+}
+
+int main() {
+	fLogMemory = 1;   // Turn logging on
+	for (int i = 0; i < 10; ++i) {
+		char* pMem = new char[i];
+		delete[] pMem;
+	}
+	fLogMemory = 0;  // Turn logging off.
+	return cBlocksAllocated;
+}
+```
+
+在类声明中支持成员数组 `new` 和 `delete` 运算符。
+
+```c++
+class X  {
+public:
+   void * operator new[] (size_t) { return 0; }
+   void operator delete[] (void*) {}
+};
+void f() {
+   X *pX = new X[5];
+   delete [] pX;
+}
+```
+
+
+对于类类型的对象，如果 `delete` 表达式以一元范围解析运算符 (`::`) 开始，则会在全局范围中解析解除分配函数的名称。否则，`delete` 运算符将在释放内存之前为对象调用析构函数（如果指针不为 `null`）。
+
+如果 `delete` 表达式用于释放其静态对象具有虚拟析构函数的类对象，则将通过对象的动态类型的虚拟析构函数解析释放函数。
+
+
+
+
+>---
+#### 指针运算与间接寻址
 
 ```c++
 // address-of
@@ -2301,37 +2799,698 @@ p += i;
 p -= i;
 ```
 
+`*` 取消引用指针将其转换为一个左值。如果该指针的值无效，则结果是未定义的。例如：
+- 该指针为 null 指针。
+- 该指针指定引用时不可见的本地项的地址。
+- 该指针指定未针对所指向的对象类型正确对齐的地址。
+- 该指针指定执行程序未使用的地址。
 
+```c++
+int i = 100;
+int *pi = &i;
 
+*pi = 10086; // now i = 10086
+```
 
-		
-		
-		
-		
-		
-		
-		
-		
-		
+>---
+#### 数组下标运算
 
+```c++
+int nArray[5] = { 0, 1, 2, 3, 4 };
+cout << nArray[2] << endl;            // prints "2"
+cout << 2[nArray] << endl;            // prints "2"
 
+int* pArray = new int[5] { 0, 1, 2, 3, 4 };
+cout << pArray[2] << endl;            // prints "2"
+cout << 2[pArray] << endl;            // prints "2"
 
-	
+// 多维
+int arr[10][10][10]{};
+arr[5][5][5] = 1;
+5[5[5[arr]]] = 1;  // 不推荐
+```
 
+C++ 数组的范围是从 `array[0]` 到 `array[size – 1]`；但支持正负下标，数组下标错误不会产生编译时错误。负下标必须在数组边界内，否则结果不可预知：
+
+```c++
+#include <iostream>
+using namespace std;
+int main() {
+    int intArray[1024];
+    for (int i = 0, j = 0; i < 1024; i++)
+        intArray[i] = j++;
+    cout << intArray[512] << endl;   // 512
+    cout << 257[intArray] << endl;   // 257
+    int *midArray = &intArray[512];  // pointer to the middle of the array
+    cout << midArray[-256] << endl;  // 256
+    cout << intArray[-256] << endl;  // unpredictable, may crash
+}
+```
+
+重载下标运算符：
+
+```c++
+template<typename T> 
+struct Array {
+	T* arr;
+	size_t len;
+public:
+	Array(size_t size) {
+		arr = new T[size];
+		len = size;
+	}
+	T& operator [] (size_t i) {
+		if (i < 0 || i >= len) 
+			throw out_of_range("i");
+		return this->arr[i];
+	}
+	~Array() { delete arr; }
+};
+
+int main() {
+	Array<int> arr(10);
+	arr[10] = 10;
+}
+```
+
+>---
+#### typeid
+
+```c++
+typeid(type-id)
+typeid(expression)
+```
+
+`typeid` 运算符允许在运行时确定对象的类型；结果是 `const type_info&`。`typeid` 运算符不适用于托管类型（抽象声明符或实例）。在应用于多态类类型的 *lvalue* 时执行运行时检查，其中对象的实际类型不能由提供的静态信息确定。 此类情况是：
+- 对类的引用
+- 使用 `*` 取消引用的指针
+- 带下标的指针 (`[ ]`)。将下标与指向多态类型的指针一起使用是不安全的。
 		
-	
+如果 `expression` 指向基类类型，但对象是派生类型的值，则结果是派生类型的 `type_info`。`expression` 必须指向多态类型（具有虚函数的类）。否则结果是 `expression` 中引用的静态类的 `type_info`。必须取消引用指针，这样使用的对象就是它所指向的对象；否则结果将是指针的 `type_info`。	
+		
+```c++
+class Base {
+public:
+   virtual void vvfunc() {}
+};
+class Derived : public Base {};
+int main() {
+   Derived* pd = new Derived;
+   Base* pb = pd;
+   cout << typeid( pb ).name() << endl;   // "class Base *"
+   cout << typeid( *pb ).name() << endl;  // "class Derived"
+   cout << typeid( pd ).name() << endl;   // "class Derived *"
+   cout << typeid( *pd ).name() << endl;  // "class Derived"
+   delete pd;
+}
+```		
+		
+在 `typeif` 中取消引用零值指针将引发 `bad_typeid`；指针不指向有效的对象，则会引发 `__non_rtti_object` 异常。
+
+如果 `expression` 不是指针或对对象的基类的引用，则结果是表示 `expression` 的静态类型的 `type_info` 引用。 表达式的静态类型将引用在编译时已知的表达式的类型。在计算表达式的静态类型时，将忽略执行语义；并且将忽略引用（如果可能）。
+
+```c++
+typeid(int) == typeid(int&); // evaluates to true
+```
+
+`typeid` 可以在模板中使用，以确定模板参数的类型：
+
+```c++
+template < typename T >
+T max( T arg1, T arg2 ) {
+   cout << typeid( T ).name() << "s compared." << endl;
+   return ( arg1 > arg2 ? arg1 : arg2 );
+}
+```
+		
+> *type_info* 
+		
+`type_info` 类描述编译器在程序中生成的类型信息。此类的对象可以有效存储指向类型名称的指针。`type_info` 类还可存储适合比较两个类型是否相等或比较其排列顺序的编码值。
+
+```c++
+class DerivedA {};
+class DerivedB {};
+class Derived : public DerivedA, public DerivedB {  };
+
+int main() {
+	Derived* d = new Derived;
+	DerivedA* da = static_cast<DerivedA*>(d);
+	DerivedB* db = static_cast<DerivedB*>(d);
+	assert(typeid(*da) == typeid(*db));  // true;
+}
+```
+
+---
+### 语句
+#### 空语句
+
+```c++
+while(cond)
+    ;
+```
+
+>---
+#### if-else
+
+```c++
+if ( [init-statemnet]; condition ) 
+    ;  // body or statement
+[ else [if-clause] ]
+    ;  // body or statement
+```
+```c++
+if (x < 11)
+    cout << "x < 11 is true!\n";  // executed
+else
+    cout << "x < 11 is false!\n"; // not executed
+```
+
+可以可选的包含一个初始化语句。
+
+```c++
+if (auto it = m.find(10); it != nullptr)
+    cout << it->name << endl;
+```
+
+从 C++17 开始，可以使用函数模板中的 `if constexpr` 语句做出编译时分支决策，而无需求助于多个函数重载。
+
+```c++
+template<typename T>
+auto Show(T t)
+{
+	//if (std::is_pointer_v<T>) // Show(a) results in compiler error for return *t. Show(b) results in compiler error for return t.
+	if constexpr (std::is_pointer_v<T>) // This statement goes away for Show(a)
+		return *t;
+	else
+		return t;
+}
+
+int main() {
+	using namespace std;
+	int a = 42;
+	int* pB = &a;
+	cout << Show(a) << endl;  // prints "42"
+	cout << Show(pB) << endl; // prints "42"
+}
+```
+
+>---
+#### switch-case
+
+```c++
+swtich ( [init-statement;] condition ){
+    case cond1:
+        ;  // statements
+        break; // return; 
+    // case ...
+    [default: ]
+}
+
+```
+
+`switch` 语句体由一系列 `case` 标签和一个 `default`（可选）标签组成。语句使控件根据 `condition` 的值转移到其语句正文中的一个标签分支语句 `case` 或 `default`；`condition` 必须是整数型或可明确转换为整数型的类类型；标签之间可以贯穿，编译器给出警告。`condition` 中允许使用一个初始化句。
+
+```c++
+struct S {
+	int stat;
+public:
+	S(int stat) { S::stat = stat; };
+	int operator ()() {
+		return this->stat;
+	}
+};
+int main() {
+	S s(1);
+	switch (int a = s(); a) // or switch( s() ) // s() 转换为 int
+	{
+	case 1:
+		//...
+		break;
+	// case ...
+	default:break;
+	}
+}
+```
+
+属性 `[[fallthrough]]` 表示在 `case` 之间人为设定的发生贯穿，告知编译器两个 `case` 的贯穿是可行的，不必发出警告；
+
+```c++
+switch (1) {
+case 1:
+	cout << 1 << endl;
+	[[fallthrough]];
+case 2:
+	cout << 2 << endl;
+default:break; // warning: fallthrough
+}
+```
+
+在 `case` 中声明的变量属于 `switch` 语句范围，因此共享名称空间和遵循单一定义原则；但前提是可以访问到它们，即所有可能的执行路径都不会绕过它们。
+
+```c++
+// switch (char szChEntered[] = "Character entered was:"; 'a')  // init at swtich condition; is ok
+switch ('a')  
+{
+    // Error. Unreachable declaration.
+    char szChEntered[] = "Character entered was: "; 
+case 'a':
+{
+    // Declaration of szChEntered OK. Local scope.
+    char szChEntered[] = "Character entered was: ";
+    cout << szChEntered << "a\n";
+}
+break;
+case 'b':
+    // Error. Value of szChEntered undefined.
+    cout << szChEntered << "b\n";
+    break;
+default:
+    // Error. Value of szChEntered undefined.
+    cout << szChEntered << "neither a nor b\n";
+    break;
+}
+```
+
+>---
+#### goto 与标签
+
+标签具有函数范围，在整个函数内可见，与声明位置无关。
+
+```c++
+int main() {
+   goto Test2;
+   cout << "testing" << endl;
+   Test2:
+      cerr << "At Test2 label." << endl;
+}
+```
+
+>---
+#### while
+
+执行零次到多次；
+
+```c++
+while ( expression ) {
+   // statement
+};
+```
+
+>---
+#### do-while
+
+至少执行一次；
+
+```c++
+do{
+    // statement
+}while ( expression );
+```
+
+>---
+#### for
+
+重复执行语句，直到条件变为 `false`。`init-expr` 和 `loop-expr` 可以包含多个语句。
+
+```c++
+for (init-expr?; cond-expr?; loop-expr ) {
+    statement
+}
+
+// for(;;) == while(true)
+for (int a = 1, b = 10; a < b; a++, b--, cout << a * b << '\n')
+	;
+```
+
+>---
+#### for-range
+
+```c++
+for ( for-range-declaration : expression)
+    statement
+```
+
+基于范围的 `for` 循环用来循环访问数组和矢量：
+
+```c++
+int x[10]{ 1,2,3,4,5,6,7,8,9,0 };
+for (auto e : x)
+	cout << e << "\n";
+```
+
+有关基于范围的 `for` 的情况：
+- 自动识别数组。
+- 识别拥有 `.begin()` 和 `.end()` 的容器。
+- 对于任何其他内容，使用依赖于自变量的查找 `begin()` 和 `end()`。
+
+```c++
+template <typename T>
+class Iterator {  // 迭代器
+private:
+	T* iter;
+public:
+	Iterator(T* para, size_t n) { iter = para + n; }
+	T& operator *() { return *iter; }
+	bool operator != (const Iterator& that) { return this->iter != that.iter; }
+	Iterator& operator++ () { ++iter; return *this; }
+};
+template <typename T>
+class docker {  // 实现 begin 和 end
+private:
+	T* p;
+	size_t size;
+public :
+	docker(size_t n, T arr[]) :size(n) { p = arr; }
+	Iterator<T> begin() { return Iterator<T>(this->p, 0); }
+	Iterator<T> end() { return Iterator<T>(this->p, size); }
+};
+
+int main(int argc, char* argv[])
+{
+
+	int x[10]{ 1,2,3,4,5,6,7,8,9,0 };
+	docker<int> d(10, x);
+	for (auto& i : d)
+		cout << i << ", ";
+}
+```
+
+>---
+#### break, continue, return
+
+`break` 语句可终止执行最近的封闭循环或其所在条件语句。
+`continue` 跳过后续语句并开启最小封闭 `do`、`for` 或 `while` 的下一次迭代。
+`return` 终止函数的执行并返回到调用方。
+
+```c++
+int f(int i)
+{
+	int c = 0;
+	while (i--) {
+		if (i > 100) break;
+		if (i % 2 == 0) continue;
+		cout << i << ",";
+		++c;
+	}
+	cout << endl;
+	return c;
+}
+int main() {
+	auto c = f(10);    // 9,7,5,3,1
+	printf("Iterate %d\n", c);  // 5
+	c = f(1000);  // break
+	printf("Iterate %d\n", c);  // 0
+}
+```
+
+---
+### Namespace
+
+命名空间是一个声明性区域，通过单个标识符的 `using` 声明（`using std::string`）来访问成员 `string`；或 `using` 指令 （`using namespace std`）来访问 `std` 命名空间的所有成员；头文件中的代码应始终使用完全限定的命名空间名称。
+
+```c++
+namespace ContosoData
+{
+    class ObjectManager
+    {
+    public:
+        void DoSomething() {}
+    };
+    void Func(ObjectManager) {}
+}
+
+// 使用完全限定名称访问：
+ContosoData::ObjectManager mgr;
+mgr.DoSomething();
+ContosoData::Func(mgr);
+
+// using 声明
+using ContosoData::ObjectManager;
+ObjectManager mgr;
+mgr.DoSomething();
+
+// using 指令
+using namespace ContosoData;
+ObjectManager mgr;
+mgr.DoSomething();
+Func(mgr);
+```
+
+如果未在显式命名空间中声明某个标识符，隐式全局命名空间的一部分。`main` 入口函数必须在全局命名空间中。所有 C++ 标准库类型和函数都在 `std` 命名空间或嵌套在 `std` 内的命名空间中进行声明。
+
+普通嵌套命名空间的成员仅属于嵌套，父级访问嵌套空间成员需要使用限定名称；普嵌套命名空间具有对其父级成员的非限定访问权限。
+
+```c++
+namespace ContosoDataServer
+{
+    void Foo();
+    namespace Details
+    {
+        int CountImpl;
+        void Ban() { return Foo(); }  // 非限定访问
+    }
+    int Bar(){...};
+    int Baz(int i) { return Details::CountImpl; }  // 限定访问
+}
+```
+
+内联命名空间的成员被视为父级空间的成员。可以在内联命名空间中声明的模板，然后在父命名空间中声明专用化：
+
+```c++
+namespace Parent
+{
+    inline namespace new_ns
+    {
+         template <typename T>
+         struct C
+         {
+             T member;
+         };
+    }
+    template<>
+    class C<int> {};
+}
+```
+
+可以将内联命名空间用作版本控制机制，以管理对库的公共接口的更改。
+
+```c++
+namespace Contoso
+{
+    namespace v_10   
+    {
+        template <typename T>
+        class Funcs  // 非内联；无法通过 Contoso::Funcs 访问 v_10::Funcs
+        {
+        public:
+            Funcs(void);            
+            T Add(T a, T b);
+            T Subtract(T a, T b);
+            T Multiply(T a, T b);
+            T Divide(T a, T b);  // 只能通过 Contoso::v_10::Funcs::Divide 访问
+        };
+    }
+    inline namespace v_20
+    {
+        template <typename T>
+        class Funcs  // 内联，直接通过 Contoso::Funcs 访问
+        {
+        public:
+            Funcs(void);
+            T Add(T a, T b);
+            T Subtract(T a, T b);
+            T Multiply(T a, T b);
+            std::vector<double> Log(double);
+            T Accumulate(std::vector<T> nums);
+        };
+    }
+}
+```
+
+>---
+#### 命名空间别名
+
+```c++
+namespace a_very_long_namespace_name { class Foo {}; }
+namespace AVLNN = a_very_long_namespace_name;
+void Bar(AVLNN::Foo foo){ }
+```
+
+>---
+#### 匿名命名空间
+
+匿名命名空间中的成员对外不可见，仅对其翻译单元范围可见，对外部文件不可见（相当于内部链接）。
+
+```c++
+// flieA.cpp
+namespace Parent {
+	namespace {
+		void Myfunc() {
+			std::cout << "Call Myfunc" << std::endl;
+		}
+	}
+	void CallMyfunc() {
+		Myfunc();  // 当前翻译单元可见
+	}
+}
+// fileB.cpp
+namespace Parent {
+	void CallMyfuncOther() {
+		// Parent::Myfunc 在当前翻译单元不可见
+	}
+}
+int main() {
+	Parent::CallMyfunc(); 
+}
+```
 
 
 ---
 ### 类型与变量
 
 
----
-### 表达式
+
+>---
+#### Enum
+
+枚举是用户定义的类型，其中包含一组 “枚举项” 的命名的整型常量。没有 *integerType* 时默认为 `int`。 
+
+```c++
+enum Identifier [: integerType ] { ... }       // 非区分范围枚举
+enum class Identifier [: integerType ] {...}  // 区分范围枚举类型
+
+enum Week : unsigned char { Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday };
+enum class Suit { Diamonds, Hearts, Clubs, Spades };
+```
+
+在非区分范围枚举声明中，非限定枚举项在声明 `enum` 的整个范围中可见。在区分范围的枚举中，枚举项名称必须由 `enum` 类型名称限定。非限定枚举项可以隐式转换为 `int`；限定枚举项无法直接隐式转换，需要 `static_cast` 强制转换。
+
+```c++
+int main() {
+	Week day = Monday;
+	Suit kind = Suit::Hearts;
+
+	int tue = Tuesday;
+	int clubs = static_cast<int>( Suit::Clubs);
+}
+```
+
+> 空枚举项的枚举
+
+仅通过使用显式基础类型而无需定义枚举项的枚举，实际上可以视为一种没有任何其他类型隐式转换的新整型类型。
+
+```c++
+// std::byte
+enum class byte : unsigned char {};
+
+byte operator|(const byte _Left, const byte _Right) noexcept {
+	return static_cast<byte>(
+		static_cast<unsigned char>(static_cast<unsigned int>(_Left) | static_cast<unsigned int>(_Right)));
+}
+byte operator&(const byte _Left, const byte _Right) noexcept {
+	return static_cast<byte>(
+		static_cast<unsigned char>(static_cast<unsigned int>(_Left) & static_cast<unsigned int>(_Right)));
+}
+byte operator^(const byte _Left, const byte _Right) noexcept {
+	return static_cast<byte>(
+		static_cast<unsigned char>(static_cast<unsigned int>(_Left) ^ static_cast<unsigned int>(_Right)));
+}
+byte operator~(const byte _Arg) noexcept {
+	return static_cast<byte>(static_cast<unsigned char>(~static_cast<unsigned int>(_Arg)));
+}
+byte& operator|=(byte& _Left, const byte _Right) noexcept {
+	return _Left = _Left | _Right;
+}
+byte& operator&=(byte& _Left, const byte _Right) noexcept {
+	return _Left = _Left & _Right;
+}
+byte& operator^=(byte& _Left, const byte _Right) noexcept {
+	return _Left = _Left ^ _Right;
+}
+int test() {
+	byte b1{ 0 }, b2{ 1 };
+	byte rt = b1 | b2;
+	rt = b1 & b2;
+	rt = b1 ^ b2;
+	rt &= b1;
+	rt |= b1;
+	rt ^= b1;
+}
+```
+
+>---
+#### Union
+
+联合是一个用户定义类型，其中所有成员都共享同一个内存位置。它始终仅使用足以存储最大成员的内存。如果任何成员类型具有不常用的 constructor（构造函数），则必须编写代码来显式 construct（构造）和销毁该成员。`union` 无法存储引用。`union` 也不支持继承。直接分配初始化表达式时，将该表达式的结果分配给 `union` 的第一个字段
+
+```c++
+
+union RecordType    // Declare a simple union type
+{
+	char   ch;
+	int    i;
+	long   l;
+	float  f;
+	double d;
+	int* int_ptr;
+public:
+	RecordType(char ch) :ch(ch) {}
+	template <typename T>
+	void print() {
+		T* t = new T;
+		memcpy(t, this, sizeof(T));
+		std::cout << *t << std::endl;
+	}
+};
+int main() {
+
+	RecordType t1 = { 'A' };  // t2.ch = 'A';
+	t1.print<char>();  // 'A'
+	RecordType t2(0);
+	t2.i = 5;    // t holds an int
+	t2.print<int>();   // 5
+	t2.f = 7.25; // t now holds a float
+	t2.print<float>();   // 7.25
+}
+```
+
+匿名 `union` 中声明的名称可在周围范围中直接使用，就像非成员变量一样。这意味着匿名 `union` 中声明的名称必须在周边范围中是唯一的。匿名 `union` 受以下限制的约束：
+- 如果是在文件或命名空间范围内声明的，还必须将其声明为 `static`。
+- 它只能有 `public` 成员；在一个匿名的 `union` 中拥有 `private` 成员和 `protected` 成员会产生错误。
+- 它不能具有成员函数。
+
+```c++
+// 文件范围或命名空间范围的匿名 union
+static union {
+    short       iValue;
+    long        lValue;
+    double      dValue;
+}
+
+// 结构中的匿名 union
+struct Input
+{
+    WeatherDataType type;
+    union
+    {
+        TempData temp;
+        WindData wind;
+    };
+};
+```
+
+`union` 可以包含具有 `class` 类型的非 `static` 数据成员；如果包含这样一个成员，编译器会自动将非用户提供的任何特殊成员函数标记为 `delete`。如果 `union` 是 `class` 或 `struct` 中的匿名联合，则 `class` 或 `struct` 的非用户提供的任何特殊成员函数都会被标记为 `delete`。
 
 
 ---
-### 语句
+### 函数
+
+
+
+
+---
+### 异常处理
+
 
 
 
