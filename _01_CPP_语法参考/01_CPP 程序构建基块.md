@@ -3485,14 +3485,596 @@ struct Input
 ---
 ### 函数
 
+函数是执行某种操作的代码块。在类范围中定义的函数称为成员函数。函数还可以在命名空间范围中定义（包括隐式全局命名空间）。这类函数称为 *Free* 函数或非成员函数。函数可以重载。
+
+```c++
+struct S{
+    void foo();  // 成员函数，声明
+}
+void S::foo() {} // 定义, S::foo 调用
+
+void foo(){}   // Free 函数； ::foo() 调用
+```
+
+
+
+>---
+#### 函数声明修饰符
+
+最多只有一个链接属性声明，其他属性和修饰可以组合。
+- `constexpr` 修饰函数返回值，表明函数生成的值可在编译时确定。
+- `extern "C"` or `extern "C++"` 声明函数链接规范。
+- `static` 声明函数的内部链接。
+- `extern` 外部引用声明（非定义），或外部链接声明定义。 
+- `inline` 声明内联函数。
+- `noexcept` 指定函数是否可以引发异常。
+
+```c++
+extern "C" void CCall();
+extern "C++" void CXXCall();
+static void foo();
+extern void foo(auto x);
+static constexpr int Sum(const int x, const int y)  {
+	return x + y;
+}
+static inline volatile int foo(int&);
+extern "C" const int errHandler(int code) noexcept;
+```
+
+- `const` 或 `volatile` 修饰参数或返回类型。 
+
+```c++
+volatile auto Temp(const auto a, volatile auto b);
+const int Sample::GetValue();
+```
+
+
+仅限成员函数：
+- `static` 声明静态成员函数，表明函数不与类的任何对象实例关联（无法调用 `this`）。
+- `const` or `volatile` 函数 cv 限定，仅限非静态；只是函数仅由 `const` 类型调用还是 `volatile` 类型调用。
+- `virtual`、`override` 或 `final` 指定成员函数是虚函数、重写继承的虚函数、还是密封函数，仅限非静态。
+- `&`、`&&` ref 引用限定，仅限非静态成员函数，表明隐式对象参数 (`*this`) 是右值引用或左值引用时要选择的函数重载。
+
+```c++
+class Base {
+	virtual void OverrideFun() volatile;
+	virtual void FinalFun() const;
+	virtual void LRefFun()&;
+	virtual void RRefFun()&&;
+};
+class Sample : Base {
+	void ConstFun() const;
+	void VolatileFun() volatile;
+	static void StaticFun();
+	virtual void VirtualFun();
+	void OverrideFun() volatile override;
+	void FinalFun() const final;
+	void LRefFun() & override;
+	void RRefFun() && override;
+	void RRefFun() const&&;    // 重载
+	void RRefFun() volatile&&;
+};
+```
+
+>---
+#### 函数原型与定义声明
+
+
+>---
+#### 函数返回类型
+
+函数不能返回另一个函数或内置数组；但是可以返回这些类型的指针，或生成函数对象的 lambda。除此之外可以返回范围内的任何类型的值或 `void` 无返回。可以使用 `auto` 指示编译器从函数体推断返回类型，而不必提供结尾返回的具体类型，`auto` 始终推导为按值返回，且不会保留它推到的类型的常量性等属性。
+
+```c++
+int getInt();
+std::string getString();
+void VoidReturn();
+void* getBuffer(size_t size);
+
+template<typename T> 
+T* createArray(size_t size);
+
+typedef void (*pf)();
+pf getFunPtr();
+
+template<typename Lhs, typename Rhs>
+auto Add2(const Lhs& lhs, const Rhs& rhs)
+{
+    return lhs + rhs; // returns a non-const object by value
+}
+```
+
+返回类型可以有 `const` 或 `volatile` 限定，或按引用返回；`auto&`、`auto&&` 按引用返回：
+
+```c++
+const char * hello = "hello world";
+const char*& getString() { return hello; }
+
+volatile class Time {};
+volatile Time& timeNow();
+
+auto&& getValue();
+```
+
+> *结尾返回类型*
+
+结尾返回类型位于签名的最右侧，带有 `-> decltype( expr )`；当返回值的类型取决于模板参数时，结尾返回类型在函数模板中尤其有用。当 `auto` 与结尾返回类型结合使用时，它对于 `decltype` 表达式生成的任何内容都只用作占位符，本身不执行类型推导。
+
+`decltype(auto)` 类型推断规则将保留所有类型信息。
+
+```c++
+template<typename Lhs, typename Rhs>
+auto Add(const Lhs& lhs, const Rhs& rhs) -> decltype(lhs + rhs)
+{
+    return lhs + rhs;
+}
+// 等效写法
+template<typename Lhs, typename Rhs>
+decltype(auto) Add(const Lhs& lhs, const Rhs& rhs)
+{
+    return lhs + rhs;
+}
+```
+
+> 多值返回
+
+可通过多种方式从函数返回多个值；
+- 将值封装在命名类或结构对象中。要求类或结构定义对调用方可见；
+
+```c++
+struct S
+{
+    string name;
+    int num;
+};
+S g(){ return {"name", 110 } };
+```
+
+- 返回 `std::tuple` 或 `std::pair` 对象；
+
+```c++
+std::tuple<int, string, double> f()
+{
+    int i{ 108 };
+    string s{ "Some text" };
+    double d{ .01 };
+    return { i,s,d };
+}
+int main()
+{
+    auto t = f();
+    cout << get<0>(t) << " " << get<1>(t) << " " << get<2>(t) << endl;
+    // --or--
+    int myval;
+    string myname;
+    double mydecimal;
+    tie(myval, myname, mydecimal) = f();
+    cout << myval << " " << myname << " " << mydecimal << endl;
+}
+```
+
+- 使用结构化绑定 `auto[v1,v2,...] = f()`；存储返回值的变量在声明的同时被初始化。
+
+```c++
+auto[a, b] = g();    // init from POD struct S
+auto[x, y, z] = f(); // init from tuple
+
+cout << a << " " << b << endl;
+cout << x << " " << y << " " << z << endl;
+```
+
+- 使用 ref 引用传递的参数返回；函数可以修改或初始化调用方提供的引用对象的值：
+
+```c++
+int foo(const int in, int& out) {
+    out = in;
+    return in;
+}
+```
+
+>---
+#### 函数形参实参
+
+函数具有零种或多种类型的逗号分隔参数列表，其中每个参数都具有可以用于在函数体内访问它的名称。函数模板可以指定更多类型或值参数。
+
+默认情况下，参数通过值传递给函数，这意味着函数会收到所传递的对象的副本：
+
+```c++
+void DoSomething(std::string input){...}
+```
+
+若传递的数据类型创建副本的成本过高，可以按引用传递参数：
+
+```c++
+void DoSomething(std::string& input){...}
+```
+
+若要显式处理通过右值引用或通过左值引用传递的自变量：
+
+```c++
+void DoSomething(std::string&& input){...}
+```
+
+参数可以有 `const` 或 `volatile` 限定修饰，表明参数是只读或易变属性：
+
+```c++
+void DoSomething(const std::string& input, volatile int msgCode){...}
+```
+
+无参时可选使用 C 风格的 `void`：
+
+```c++
+void DoSomething( void ){...}
+```
+
+>---
+#### 非静态成员函数的隐式 *this* 参数 
+
+`static` 函数没有提供 `this` 指针作为第一个传递的隐式参数；非静态的成员函数要求隐式 `this` 指针取调用该函数的对象类型相匹配；
+- 常规函数中 `this` 被视为 `class_name * const`；
+- 在 `const` 限定函数中，`this` 是 `const class_name * const`；
+- 在 `volatile` 限定函数中，`this` 是 `volatile class_name * const`；
+
+`obj.name` 的成员运算符实际上是 `(&obj)->name`；非静态成员函数的调用，实际上是 `func(&obg, argu-list)`
+
+```c++
+class S {
+public:
+	// cv 限定区分
+	void foo() { cout << "normal foo\n"; }
+	void foo() const { cout << "const foo\n"; }
+	void foo() volatile { cout << "volatile foo\n"; }
+};
+int main()
+{
+	S s{};  	      s.foo();	// normal foo
+	const S cs{};     cs.foo();	// const foo
+	volatile S vs{};  vs.foo();	// volatile foo
+
+}
+```
+
+引用限定符可以根据 `this` 指向的对象是 `rvalue` 还是 `lvalue` 来重载成员函数。但要求所有签名相同的成员函数都具有或不具有引用限定：
+
+```c++
+class S {
+public:
+    // ref 限定
+	void foo()& { cout << "& foo\n"; }
+	void foo()const& { cout << "const& foo\n"; }
+	void foo()volatile& { cout << "volatile& foo\n"; }
+	void foo()&& { cout << "&& foo\n"; }
+	void foo()const&& { cout << "const&& foo\n"; }
+	void foo()volatile&& { cout << "volatile&& foo\n"; }
+}
+const S&& getRCS() { return S{}; }
+volatile S&& getRVS() { return S{}; }
+int main()
+{
+	S s{};			 s.foo();	// & foo
+	const S cs{};	 cs.foo();	// const& foo
+	volatile S vs{}; vs.foo();	// volatile& foo
+
+	S& ls = s;			  ls.foo();	 // & foo
+	const S& lcs{};		  lcs.foo(); // const& foo
+	volatile S& lvs = s;  lvs.foo(); // volatile& foo
+
+	/* rs */  (S{}).foo();	  // && foo
+	/* rcs */ getRCS().foo(); // const&& foo
+	/* rvs */ getRVS().foo(); // volatile&& foo
+}
+```
+
+
+
+
+>---
+#### 默认参数值
+
+函数签名中的最后一个或几个参数可能会分配有默认自变量，这意味着调用方可能会在调用函数时省略自变量。当函数重载决同时匹配常规函数和具有默认参数的函数时，则会引发二义性错误。
+
+```c++
+int print( double dvalue );                // Print a double.
+int print( double dvalue, int prec);       // Print a double with a given precision.
+// 可以将 `print double` 进行功能合并，并对 `prec` 提供默认值：
+int print( double dvalue, int prec=2 ); 
+```
+
+>---
+#### 可变参数
+
+函数的最后一个参数可以是可变参数 `...`，访问可变参数使用头文件 `stdarg.h` 中的 `va_arg`、`va_copy`、`va_end`、`va_start`。`char` 传递给可变参数时转换为 `int`；`flaot` 转换为 `double`；其他类型的值受常见整数和浮点数数值提升的限制。
+
+```c++
+#include <cstdarg>
+// 约定 f = float,c=char,s=char*,i=int
+void ShowVar(const char* szTypes, ...);
+int main() {
+    ShowVar("fcsi", 32.4f, 'a', "Test string", 4);
+}
+void ShowVar(char* szTypes, ...) {  
+    va_list vl;
+    int i;
+    va_start(vl, szTypes);
+    for (i = 0; szTypes[i] != '\0'; ++i) {
+        union Printable_t {
+            int     i;
+            float   f;
+            char    c;
+            char* s;
+        } Printable;
+        switch (szTypes[i]) {   // Type to expect.
+        case 'i':
+            Printable.i = va_arg(vl, int);
+            printf_s("%i\n", Printable.i);
+            break;
+        case 'f':
+            Printable.f = va_arg(vl, double);
+            printf_s("%f\n", Printable.f);
+            break;
+        case 'c':
+            Printable.c = va_arg(vl, char);
+            printf_s("%c\n", Printable.c);
+            break;
+        case 's':
+            Printable.s = va_arg(vl, char*);
+            printf_s("%s\n", Printable.s);
+            break;
+        default:
+            break;
+        }
+    }
+    va_end(vl);
+}
+```
+
+>---
+#### 函数重载
+
+允许在同一范围内指定多个同名函数。这些函数称为重载函数或重载。可以根据参数的类型和数量为函数提供不同的语义。无法通过返回类型的不同和 `noexcept` 异常规范进行重载。
+
+可以通过参数数目、类型、是否包含可变参数、`const` 或 `volatile` 函数限定、`&` 或 `&&` 限定等区分用于重载：
+
+```c++
+class S {
+public:
+	void foo() {}
+	void foo(int, ...) {}    // 可变参数区分
+	void foo(int, float) {}  // 参数数目区分
+
+	// 参数类别区分
+	// void foo(int) {} 
+	void foo(long) {}
+	void foo(int&) {}     // 调用 int a; foo(a) 无法区分 foo(int) 与 foo(int&)
+	void foo(const int&) {}
+	void foo(volatile int&) {}
+	void foo(int&&) {}   // 调用 foo(10) 无法区分 foo(int) 与 foo(int&&)
+	void foo(const int&&) {}
+	void foo(volatile int&&) {}
+
+	// cv 限定区分
+	void foo(int) const {}
+	void foo(int) volatile {}
+
+	// ref 限定区分
+	// 仅通过引用限定进行区分的重载需要全部都具有引用限定或都不具有
+	void foo(float)& {}
+	void foo(float)&& {}
+	void foo(float)const& {}
+	void foo(float)const&& {}
+	void foo(float)volatile& {}
+	void foo(float)volatile&& {}
+
+	void foo(auto) {}
+	// 可以通过编译，但无法通过函数决策; 它们无法进行区分
+    template<typename T>
+	decltype(auto) foo(T t) { return t; }
+	template<typename T>
+	// auto foo(T t) { return t; }    
+	// template<typename T>
+	// auto foo(T t) -> decltype(t) { return t; }
+};
+```
+
+编译器根据当前范围内的函数声明与函数调用中提供的参数的最佳匹配，来选择要调用的重载函数。如果找到合适的函数，则调用该函数。编译器为每个自变量创建一组候选函数。其中的实际自变量可以转换为形式自变量的类型。为每个自变量生成一组 “最佳匹配函数”，并且所选函数是所有集的交集。如果交集包含多个函数，则重载是不明确的并会生成错误。
+
+> *Microsoft 专用:*
+
+可以根据返回类型重载 `operator new`，特别是根据指定的内存模型修饰符。
+
+```c++
+// Microsoft C++
+
+
+```
+
+> *参数匹配和转换*
+
+当编译器尝试根据函数声明中的参数匹配实际参数时，如果未找到任何确切匹配项，它可以提供标准转换或用户定义的转换来获取正确类型。不考虑包含多个用户定义转换的转换序列。也不考虑可通过删除中间转换来缩短的转换序列。
+
+常用转换有：
+
+```c++
+typename        to  	typename&
+typename&	    to      typename
+typename[]	    to      typename*
+typename	    to      const typename
+typename	    to      volatile typename
+typename*	    to      const typename*
+typename*	    to      volatile typename*
+typename(argument-list)   to  	(*typename)(argument-list)
+```
+
+还包括数值提升，简单类型隐式转换等。枚举类型是不同的类型，并且可用于区分重载函数。类型 “array of” 和 “pointer to” 是等效的，适用一维数组。
+
+从指向派生类的指针到指向直接或间接基类的指针的转换优于到 `void *` 或 `const void *` 的转换。从指向派生类的指针到指向基类的指针的转换会产生一个到直接基类的更好匹配。
+
+如果内置提升或转换不存在，则用户定义的转换将适用。这些转换是根据要匹配的参数的类型来选择的。
+
+```c++
+class UDC
+{
+public:
+   operator int() { return 0;}
+   operator long();
+};
+void Print( int i ) {};
+void LogToFile( long l ){};
+int main()
+{
+    UDC udc;
+    Print( udc ); // use operator int() 
+    
+    LogToFile(udc); // check operator long()
+    // 由于 UDC:operator long() 没有定义，因此编译器首先使用 int(), 再进行数值提升 int to long 的标准转换  
+}
+```
+
+如果需要任何用户定义的转换来匹配参数，则在计算最佳匹配时不会使用标准转换。即使多个候选函数需要用户定义的转换，这些函数也被认为是相等的。
+
+```c++
+class UDC1
+{
+public:
+   UDC1( int );  // User-defined conversion from int.
+};
+class UDC2
+{
+public:
+   UDC2( long ); // User-defined conversion from long.
+};
+void Func( UDC1 );
+void Func( UDC2 );
+int main()
+{
+   Func( 1 );   // 二义性
+}
+```
+
+> *重载、重写和隐藏*
+
+在基类中声明的函数与在派生类中声明的函数不在同一范围内。 如果使用与基类中的 `virtual` 函数相同的名称声明派生类中的函数，则该派生类函数会重写基类函数。如果派生类函数没有 `virtual`、`override`、`final`，则视为该同名名称的函数隐藏了基类函数。
+
+块中声明的本地函数（引用外部）与外部范围的函数或成员的名称相同，视为隐藏，仅能通过完全限定（静态 class_name::static_func）、或 `this->member` 访问被隐藏的名称。 
+
+```c++
+void Foo(int) {}
+void Foo(const char*) {}
+int main()
+{
+	extern void Foo(const char*);
+	Foo("hello");
+	Foo(1);    // err;  hidden
+	::Foo(1);  // ok;
+}
+```
+
+通过 `using` 声明引入名称和 `extern` 引用声明的名称相同时，若指向同一个函数定义则将引发冲突；
+
+```c++
+void Foo(int) {}
+void Foo(const char*) {}
+int main()
+{
+	extern void Foo(const char*);
+    using ::Foo;  // 冲突
+}
+```
+
+
+>---
+#### 显式 default 和 delete 函数
+
+
+
+>---
+#### 内联函数
+
+
+
+>---
+#### 函数类型与函数指针
+
+C++ 通过与 C 语言相同的方式支持函数指针。但是更加类型安全的替代方法通常是使用函数对象。使用 `typedef` 声明函数指针类型的别名：
+
+```c++
+int (*myFunction(char* s))(int);  // 返回 int(*)(int) 函数指针的函数
+
+typedef int (*fp)(int);  
+fp myFunction(char* s); // 等效声明
+```
+
+`typedef` 可以声明一个函数类型；函数参数是一个函数类型时，实际上是一个函数类型指针，可以将函数指针对象作为参数传递。
+
+```c++
+typedef int (*fptr)(int);
+typedef int (ftype)(int);  // 签名为 `int (int)` 的函数类型 ftype
+
+// 被视为  myFunction(ftype*, int); 
+// 因此无法与 myFunction(fptr, int) 重载，它们是等价的。
+// 但是函数无法返回 ftype, 可以返回 fptr
+int myFunction(ftype s, int v) {   
+    return s(v);
+}
+int foo(int i) { return i; }
+int main()
+{
+    fptr fp = foo; // or &foo
+    ftype* ft = foo;
+    myFunction(fp, 1);   // ok; fp  to (ftype s)
+    myFunction(ft, 1);   // ok; ft  to (ftype s)
+    myFunction(*ft, 1);  // ok; *fp to (ftype s)
+    myFunction(*ft, 1);  // ok; *ft to (ftype s)
+    myFunction(foo, 1);  // ok; foo to (ftype s)
+}
+```
+
+
+>---
 
 
 
 ---
 ### 异常处理
 
+异常是一个可能超出程序的控制范围的错误条件，它会阻止程序继续沿其常规执行路径执行。程序错误通常分为两类：
+- 编程错误导致的逻辑错误。例如，“索引超出范围” 错误。
+- 超出程序员控制的运行时错误。例如，“网络服务不可用” 错误。
 
+在 C 样式的编程和 COM 中，错误报告的管理方式是返回一个表示错误代码或特定函数的状态代码的值，或者设置一个全局变量，调用方可以在每次执行函数调用后选择性地检索该变量来查看是否报告了错误。例如 C `errno`。
 
+```c++
+template <typename T>
+T Index(T arr[10], int i) {
+	if (i < 0 || i >= 10)
+		throw std::out_of_range("index is out of range");
+	return arr[i];
+}
+int main() {
+	int arr[10] = { 0,1,2,3,4,5,6,7,8,9 };
+	
+	try {
+		auto v = Index(arr, -1);
+	}
+	catch (out_of_range& e) {
+		cout << e.what() << endl;
+		return -1;
+	}
+}
+```
+
+在 `try` 块中，如果引发某个异常，类型与该异常的类型匹配的第一个关联 `catch` 块将捕获该异常。 换言之，执行将从 `throw` 语句跳转到 `catch` 语句。如果未找到可用的 `catch` 块，则调用 `std::terminate` 并且程序会退出。
+
+在 C++ 中可以引发任何类型；但是建议引发直接或间接派生自 `std::exception` 的类型。C++ 中不提供 *finally* 的语义。
+
+> *基本准则*
+
+- 使用断言检查应始终为 `true` 或始终为 `false` 的条件。使用异常来检查可能发生的错误，例如公共函数参数的输入验证错误。
+- 当处理错误的代码与通过一个或多个中间函数调用检测错误的代码分离时，请使用异常。当处理错误的代码与检测错误的代码紧密耦合时，请考虑是否在性能关键型循环中使用错误代码。
+- 对于每个可能引发或传播异常的函数，请提供三项异常保证之一：强保证、基本保证或 nothrow (noexcept) 保证
+- 通过值引发异常，通过引用捕获异常。 不要捕获无法处理的异常。
+- 不要允许异常从析构函数或内存解除分配函数中逃逸。
+- 使用适用的标准库异常类型。以及从 exception 类层次结构派生自定义的异常类型。
 
 ---
 ### 预处理指令
