@@ -4374,6 +4374,129 @@ class CDerived: Base {}   // 相当于 class CDerived: private Base
 
 > *对虚函数的访问*
 
+对 `virtual` 函数的访问控制是由用于进行函数调用的类型决定的。重写函数的声明不会影响给定类型的访问控制。
+
+```c++
+// access_to_virtual_functions.cpp
+class VFuncBase
+{
+public:
+    virtual int GetState() { return _state; }
+protected:
+    int _state;
+};
+class VFuncDerived : public VFuncBase
+{
+private:
+    int GetState() { return _state; }
+};
+
+int main()
+{
+   VFuncDerived vfd;             // Object of derived type.
+   VFuncBase *pvfb = &vfd;       // Pointer to base type.
+   VFuncDerived *pvfd = &vfd;    // Pointer to derived type.
+   int State;
+
+   State = pvfb->GetState();     // GetState is public.
+   State = pvfd->GetState();     // C2248 error expected; GetState is private;
+}
+```
+
+可以使用指向基类 `GetState` 的指针调用虚函数 `VFuncBase`。 这并不意味着调用的函数是该函数的基类版本，它可能在派生类中进行的重写 `override`，或多重继承中的某个中间派生类的重写方法。
+
+>---
+#### 友元
+
+类向不属于类成员的函数或单独类中的所有成员授予成员级访问权限非常有用。这些 *Free* 函数和类称为 “友元”，由 `friend` 标记。
+
+如果声明以前未声明的 `friend` 函数，则该函数将被导出到封闭非类范围。`friend` 函数被视为 `extern` 声明。
+
+尽管具有全局范围的函数可以在其原型之前声明为 `friend` 函数，但是成员函数在它们的完整类声明出现前不能声明为 `friend` 函数。
+
+```c++
+class ForwardDeclared;   // Class name is known.
+class HasFriends
+{
+    friend int ForwardDeclared::IsAFriend();   // C2039 error expected
+};
+```
+
+在类中声明的友元类可以是 `friend class F` 或 `friend F`；区别是 `class F` 引入新的类但没有定义，稍后定义；而 `friend F` 是引用外部范围的已声明类：
+
+```c++
+class F{};
+class S {
+    friend F;
+    friend class NF;
+};
+// 稍后定义
+class NF{ };
+```
+
+使用 `friend F` 将模板参数或 `typedef` 声明为友元：
+
+```c++
+typedef Foo F;
+template <typename T>
+class my_class
+{
+    friend T;
+    friend F;
+    //...
+};
+```
+
+`friend` 函数是一个不为类成员的函数；它可以是新声明的属于外部范围的 *Free* 函数，或外部范围已声明的函数原型（未定义，在当前类声明之后定义）。
+
+```c++
+class Point
+{
+    friend void ChangePrivate( Point & );  // 声明原型
+public:
+    Point( void ) : m_i(0) {}
+    void PrintPrivate( void ){cout << m_i << endl; }
+
+private:
+    int m_i;
+};
+void ChangePrivate ( Point &i ) { i.m_i++; }  // 声明定义
+```
+
+类成员函数可以声明为其他类中的友元。友元关系不是相互的，例如 `A` 和 `B` 互为友元，但是编译器必须将整个第二个类指定为第一个类的友元；但是可以选择将第一个类中的哪些函数作为第二个类的友元。反之不可。友元关系不能继承，不可传递。
+
+```c++
+class A {
+	friend class B;
+public:
+	void fooA(B& b);
+};
+class B {
+	friend A;
+	friend void A::fooA(B& b);
+private:
+	int _v;
+};
+void A::fooA(B& b) {
+	b._v = 110;
+}
+```
+
+可以在类声明中定义友元函数（给定函数主体）。这些函数是内联函数，类似于成员内联函数。类声明中定义的友元函数在封闭类的范围内。
+
+```c++
+class S {
+private:
+	int _v;
+	friend S&& initS(S&& s) {
+		s._v = 110;
+	}
+};
+int main()
+{
+	S s = initS(S{});  // inline S&& initS
+}
+```
 
 
 
