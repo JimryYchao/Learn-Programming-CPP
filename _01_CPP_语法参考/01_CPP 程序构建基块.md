@@ -3344,14 +3344,8 @@ int main() {
 }
 ```
 
-
 ---
-### 类型与变量
-
-
-
->---
-#### Enum
+### Enum
 
 枚举是用户定义的类型，其中包含一组 “枚举项” 的命名的整型常量。没有 *integerType* 时默认为 `int`。 
 
@@ -3418,8 +3412,8 @@ int test() {
 }
 ```
 
->---
-#### Union
+---
+### Union
 
 联合是一个用户定义类型，其中所有成员都共享同一个内存位置。它始终仅使用足以存储最大成员的内存。如果任何成员类型具有不常用的 constructor（构造函数），则必须编写代码来显式 construct（构造）和销毁该成员。`union` 无法存储引用。`union` 也不支持继承。直接分配初始化表达式时，将该表达式的结果分配给 `union` 的第一个字段
 
@@ -3559,6 +3553,19 @@ class Sample : Base {
 >---
 #### 函数原型与定义声明
 
+函数原型声明没有函数主体，是没有完整定义的函数样式声明，可以没有参数名称，函数的主体在其他位置定义；调用没有定义的函数原型会引发编译时错误。一般在头文件中声明函数原型；在源文件中声明定义。
+
+函数定义声明必须和函数原型具有相同的签名；
+
+```c++
+// header.h
+void Foo(int);
+
+// header.cpp
+void Foo(int v){ ... }; 
+```
+
+在包含 `main` 的翻译单元中 `#include "header.cpp"` 可能会导致多重定义导致链接失败。 
 
 >---
 #### 函数返回类型
@@ -3985,12 +3992,153 @@ int main()
 >---
 #### 显式 default 和 delete 函数
 
+`default` 函数和 `delete` 函数可以显式控制是否自动生成特殊成员函数。`delete` 函数防止所有类型的函数（特殊成员函数和普通成员函数以及非成员函数）的自变量中出现有问题的类型提升，这可能会导致意外的函数调用。
+
+在 C++ 中，如果某个类型未声明它本身，则编译器将自动为该类型生成默认构造函数、复制构造函数、复制赋值运算符和析构函数、移动构造函数和移动赋值运算符。这些函数称为特殊成员函数，它们使 C++ 中的简单用户定义类型的行为如同 C 中的结构。其中：
+- 显式声明了任何构造函数，则不会自动生成默认构造函数。
+- 显式声明了虚拟析构函数，则不会自动生成默认析构函数。
+- 显式声明了移动构造函数或移动赋值运算符，则不自动生成复制构造函数和成复制赋值运算符。
+- 显式声明了复制构造函数、复制赋值运算符、移动构造函数、移动赋值运算符或析构函数，则不自动生成移动构造函数和移动赋值运算符。
+- 显式声明了复制构造函数或析构函数，则弃用复制赋值运算符的自动生成。
+- 显式声明了复制赋值运算符或析构函数，则弃用复制构造函数的自动生成。
+
+如果基类不拥有可派生类调用的默认构造函数，例如没有 `public` 或 `protected` 的默认构造函数，那么派生类无法自动生成它自己的默认构造函数。
+
+还有例如，在 C++11 之前，通过以私有方式声明复制构造函数和复制赋值运算符，而不定义它们，使用户定义类型不可复制：
+
+```c++
+struct noncopyable
+{
+  noncopyable() {};
+private:
+  noncopyable(const noncopyable&);
+  noncopyable& operator=(const noncopyable&); 
+};
+```
+
+但是它存在几个问题：
+- 私有方式声明的复制构造函数是显式完全声明的；因此会阻止自动生成默认构造函数；
+- 尽管显式定义的赋值构造函数不执行任何操作，编译器也会将它视为重要内容，其效率低于自动生成的默认构造函数；并且 `noncopyable` 无法称为 POD 类型。
+- 成员函数和 `noncopyable` 的友元仍可以调用它们（名义上是隐藏）；未定义时调用它们会导致链接器错误；
+
+不可复制的习语可通过更直接的方法实现：
+
+```c++
+struct noncopyable
+{
+  noncopyable() =default;   // 自动生成
+  noncopyable(const noncopyable&) =delete; 
+  noncopyable& operator=(const noncopyable&) =delete;
+};
+```
+
+- 仍可通过声明复制构造函数来阻止生成默认构造函数，但可通过将其显式设置为 `default` 进行恢复。
+- 显式设置的默认特殊成员函数仍被视为不重要，因此性能不会下降，并且不会阻止 `noncopyable` 成为 POD 类型；
+- 复制构造函数和复制赋值运算符是公共的，但是已删除。定义或调用已删除函数是编译时错误。
+
+对于创建不可移动、只能动态分配或无法动态分配的用户定义类型；可以通过 `default` 和 `delete` 方式进行设定。
+
+> *defualt* *特殊成员函数*
+
+可以默认设置任何特殊成员函数，以显式声明特殊成员函数使用默认实现、定义具有非公共访问限定符的特殊成员函数或恢复其他情况下被阻止其自动生成的特殊成员函数。通过对可内联的特殊成员函数设置为 `default` 而不是空函数体进行实现：
+
+```c++
+struct widget
+{
+  widget()=default;
+  inline widget& operator=(const widget&);
+};
+inline widget& widget::operator=(const widget&) =default;
+```
+
+> *delete*
+
+可以删除特殊成员函数和普通成员函数以及非成员函数，以阻止定义或调用它们。删除特殊成员函数，可以阻止编译器生成不需要的特殊成员函数。
+
+```c++
+struct widget
+{
+    // deleted operator new prevents widget from being dynamically allocated.
+    void* operator new(std::size_t) = delete;
+    widget* operator &() = delete;   // address-of 被删除
+};
+widget w{};
+widget* pw = new widget;  // ERR; 无法调用删除的函数；但是可以调用全局 new ；
+widget* pw = ::new widget;  // ok
+widget* pw = &w  // ERR; address-of 被删除
+```
+
+删除普通成员函数或非成员函数可阻止有问题的类型提升导致调用意外函数。这可发挥作用的原因是，已删除的函数仍参与重载决策，并提供比提升类型之后可能调用的函数更好的匹配。函数调用将解析为更具体的但可删除的函数，并会导致编译器错误。
+
+```c++
+// deleted overload prevents call through type promotion of float to double from succeeding.
+void call_with_true_double_only(float) =delete;
+void call_with_true_double_only(double param) { return; }
+
+call_with_true_double_only(3.14f);  // err
+call_with_true_double_only(100);  // ok; int cast to double 
+```
+
+若要限制发生隐式类型转换，确保仅发生对 `double` 类型的参数进行调用，可声明一个模板的已删除版本：
+
+```c++
+template < typename T >
+void call_with_true_double_only(T) =delete; //prevent call through type promotion of any T to double from succeeding.
+void call_with_true_double_only(double param) { return; } // also define for const double, double&, etc. as needed.
+
+call_with_true_double_only(3.1415);  // just only double
+```
 
 
 >---
 #### 内联函数
 
+函数的内联声明 `inline` 表明建议编译器使用函数定义中的代码替换对该函数的每次调用。调用函数需要将返回地址推送到堆栈、将参数推送到堆栈、跳转到函数体，然后在函数完成时执行返回指令。通过内联函数可以消除此过程。内联函数的一个缺点是程序的整体大小可能会增加。
 
+类声明的主体中定义的函数是隐式内联函数。成员函数在外部定义可以显式声明为 `inline` 函数：
+
+```c++
+struct widget
+{
+	widget();  
+	void inlinefoo();
+	void* operator new(std::size_t) = delete;  // implicit inline
+	widget* operator &() = delete;  // implicit inline
+};
+widget::widget() {}  // not inline
+inline void widget::inlinefoo() {};  // explicit inline
+```
+
+给定的内联成员函数在每个编译单元中必须以相同的方式进行声明。内联函数必须只有一个定义。除非该函数的定义包含 `inline` 说明符，否则类成员函数默认为外部链接。 
+
+`inline` 和 `__inline` 说明符建议编译器将函数体的副本插入到调用函数的每个位置。有编译器根据自己的成本收益分析决定是否进行内联展开；`__forceinline` 关键字会重写成本收益分析，改为依赖于程序员的判断。
+
+编译器将内联扩展选项和关键字视为建议。不保证会对函数进行内联。无法强制编译器对特定函数进行内联；
+
+> *宏函数和内联函数*
+
+宏与 inline 函数之间有一些共同之处。但是：
+- 宏始终是内联扩展的。
+- 宏可能会导致意外行为，从而导致微小的 bug；
+- 内联函数受编译器的语义处理约束，而预处理器会扩展宏。宏不是类型安全的，而函数是；
+- 计算一次作为内联函数的参数传递的表达式。在某些情况下，作为宏的自变量传递的表达式可计算多次。
+
+```c++
+#define sqr(a) ((a) * (a))
+int increment(int& number) { return number++; }
+inline int square(int a) { return a * a; }
+
+int main()
+{
+	int c = 5;
+	std::cout << sqr(increment(c)) << std::endl; // outputs 30; 5 * 6
+	std::cout << c << std::endl; // outputs 7
+
+	c = 5;
+	std::cout << square(increment(c)) << std::endl; // outputs 25
+	std::cout << c; // outputs 6
+}
+```
 
 >---
 #### 函数类型与函数指针
@@ -4029,8 +4177,204 @@ int main()
 }
 ```
 
+---
+### 运算符重载
+
+可以在全局或为各个类重新定义大多数内置运算符的函数。重载运算符作为函数来实现。可重载的运算符有：
+
+```c++
+a() /* 函数调用 */
+a[] /* 数组下标 */
+delete /* 内存释放 */
+new    /* 分配内存 */ 
+explicit  // 显式用户定义转换
+ :    // 隐式转换
+
+// 一元
+!a,  &a, a() /* 转换运算符 */
++a, -a, ++a, a++, --a, a--,
+~a,
+
+// 二元
+a -> b, a ->*b, (a, b), 
+a + b,  a - b,  a * b,  a / b,  a % b, 
+a += b, a -= b, a *= b, a /= b, a %= b, 
+a < b,  a > b,  a <= b, a >= b,
+a != b, a == b,
+a && b, a || b, 
+a & b,  a | b,  a ^ b,
+a &= b, a |= b, a ^= b,
+a << b, a >> b, a <<= b, a >>= b
+```
+
+`.`, `.*`, `::`, `? :`, `#`, `##` 不可重定义。
+
+重载运算符必须是非静态类成员函数或全局函数。 需要访问私有或受保护的类成员的全局函数必须声明为该类的友元 `friend`。全局函数必须至少采用一个类类型或枚举类型的自变量或其引用。
+
+声明为成员函数的一元运算符没有自变量（使用隐式 `this`）；声明为全局函数使用一个自变量；声明为成员函数的二元运算符有一个自变量；声明为全局函数有两个自变量。除赋值 (`operator=`) 之外的所有重载运算符都可由派生类继承。`[]` 下标的类型可以是任意类型，可以实现自定义索引。
+
+默认 “`operator=`” 函数可由类类型的编译器生成；定义复制赋值运算符的类还应显式定义复制构造函数和析构函数，以及移动构造函数和移动赋值运算符。
+
+
+```c++
+// 一元
+<return-type> operator op ();  // 成员函数
+<return-type> operator op ( <class-type> );  //非成员函数
+
+// 二元
+<return-type> operator op( arg );  // 成员函数
+<return-type> operator op( <class-type>, arg );  // 非成员函数
+<return-type> operator op( arg, <class-type> );  // or
+
+// 递增递减
+<class-type>& operator++();       // ++i; 成员函数
+<class-type> operator++(int);     // i++
+<class-type>& operator--();       // --i
+<class-type> operator--(int);     // i--
+
+friend Point& operator++( Point& );      // ++i; 类中定义友元; 全局范围
+friend Point operator++( Point&, int );  // i++
+friend Point& operator--( Point& );      // --i
+friend Point operator--( Point&, int );  // i--
+```
 
 >---
+#### 一元重载举例
+
+```c++
+struct S {
+	bool operator ==(S& s) { return s == *this; };    // 定义相等语法
+	bool operator !() { return this == nullptr; };    // 改变语义为检查 this 是否为 nullptr
+	S& operator &() { return *this; };				  // 改变语义返回 this 的引用
+	bool operator ()(S& s) { return s == *this; };    // 改变语义为比较值是否相等
+	S* operator ()() { return this; };				  // 改变语义返回 this 本身
+	void* operator new (size_t size) {				  // 改变语义声明一个 nullptr 初始化的空指针
+		return nullptr;
+	}
+};
+int main()
+{
+	S s = S();
+	S& rs = &s;
+	S* ps = new S;
+	while (!ps) {
+		cout << "rs is nullptr " << endl;
+		ps = rs();  // 初始化
+	}
+}
+```
+
+---
+### 类和结构
+
+类和结构在 C++ 中是相同的，在结构中，默认可访问性是 `public`，而在类中是 `private`。`union` 是 C++ 类类型的一种，成员默认是 `public`，但没有继承语义。
+
+>---
+#### 类成员
+
+`class` 或 `struct` 由其成员组成。类的工作由其成员函数执行，它所维持的状态存储在其数据成员中。成员的初始化由构造函数完成，释放内存和释放资源等清理工作由析构函数完成。
+
+类的成员有：特殊成员函数、成员函数（静态和非静态）、可变和静态数据成员、运算符、嵌套类声明、枚举、位域、别名和 *type-def*；友元包含在类声明中，但属于其周围范围。
+
+可将数据成员声明为静态，这表示类的所有对象都有权访问它的同一副本。可将成员函数声明为静态，在这种情况下它只能访问类的静态数据成员（且不具有 `this` 指针）。静态数据成员一般需要在声明时为初始值设定项。类的对象、指针、引用可以使用成员选择（`.` 和 `->`）运算符访问静态成员。
+
+如果未在类定义中指定特殊成员函数，那么编译器自动提供的函数则为特殊成员函数：默认构造函数、复制构造函数、移动构造函数、复制赋值运算符、移动赋值运算符、析构函数。
+
+```c++
+
+class TestRun
+{
+    // Start member list.
+    // The class interface accessible to all callers.
+public:
+    TestRun() = default; // Use compiler-generated default constructor
+    TestRun(const TestRun&) = delete; // Don't generate a copy constructor
+    TestRun(std::string name);
+    void DoSomething();
+    int Calculate(int a, double d);
+    virtual ~TestRun();  // virtual destructor
+    enum class State { Active, Suspended };  // enum class;
+
+    // Accessible to this class and derived classes only.
+protected:
+    virtual void Initialize();
+    virtual void Suspend();
+    State GetState();
+
+    // Accessible to this class only.
+private:
+    State _state{ State::Suspended };  // Default brace-initialization of instance members
+    std::string _testName{ "" };
+    int _index{ 0 };
+
+    // Non-const static member:
+    static int _instances;
+};
+
+// Define and initialize static member.
+int TestRun::_instances{ 0 };
+```
+
+非静态数据成员声明符可以包含初始值设定项；静态数据成员必须是常量 (`constexpr`) 才能包含初始值设定项，否则必须在文件范围内定义静态数据成员并在此范围内将其初始化；静态成员具有外部链接但可以添加可访问性。成员函数可以在类主体中声明定义或在外部定义，内部定义但会隐式声明为 `inline`。
+
+```c++
+class Stat {};
+class S {
+public :
+	S() = default;
+	static const S& Instance();
+	static Stat GetStat(S&);
+private:
+	static S* s_instance;
+	Stat s_stat{};
+};
+Stat S::GetStat(S& s) { return s.s_stat; };
+const S& S::Instance() { return *s_instance; };
+S* S::s_instance = new S{};
+```
+
+>---
+#### 成员访问控制
+
+通过访问控制，可以将类的 `public` 接口与 `private` 内部实现和仅供派生类使用的 `protected` 成员分离开来。`class` 成员默认为 `private`；`struct` 为 `public`；`union` 为 `public` 但没有 `protected`。 
+
+```c++
+class Point
+{
+public:
+    Point( int, int ) // Declare public constructor.;
+    Point();// Declare public default constructor.
+    int &x( int ); // Declare public accessor.
+    int &y( int ); // Declare public accessor.
+
+private:                 // Declare private state variables.
+    int _x;
+    int _y;
+
+protected:      // Declare protected function for derived classes only.
+    Point ToWindowCoords();
+};
+```
+
+基类成员在派生类中的可访问性受基类成员自身的访问说明符，和派生声明基类时使用的访问说明符的交集决定：
+- `private` 派生，基类的所有成员都无法访问；
+- `protected` 派生，基类的 `protected` 和 `public` 成员在派生类中是 `protected`；
+- `public` 派生，基类的 `protected` 成员在派生类中为 `protected`，基类的 `public` 成员在派生类中为 `public`。
+派生类不使用访问说明符时，`class` 派生类型使用的基类是 `private`，`struct` 派生类使用的基类是 `public`：
+
+```c++
+class Base{};
+struct SDerived: Base {}  // 相当于 struct SDerived: public Base 
+class CDerived: Base {}   // 相当于 class CDerived: private Base 
+```
+
+友元类成员的访问不受访问说明符的限制，它属于声明类的范围的成员。
+
+在将基类指定为 `private` 时，它只影响非静态成员。在派生类中，公共静态成员仍是可访问的。但是，如果使用指针、引用或对象访问基类的静态成员仍需要访问控制转换，`private` 基类无法通过派生的对象直接访问，只能通过限定方式 `base::static_member`。
+
+> *对虚函数的访问*
+
+
 
 
 
