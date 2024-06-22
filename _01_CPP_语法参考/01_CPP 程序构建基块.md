@@ -4420,8 +4420,8 @@ struct TempData
 
 int main()
 {
-    // 调用自动生成的默认构造
-	TempData t0;   
+	TempData t0;   // 未初始化的对象
+    // 调用自动生成的默认构造，数据成员零初始化
 	TempData t1{};
 
     // timeSet 后面的元素零初始化
@@ -4482,6 +4482,88 @@ string s{ 'a', 'b', 'c' };
 regex rgx{ 'x', 'y', 'z' };
 ```
 
+>---
+#### 对象生存期和资源管理
+
+C++ 没有自动回收垃圾， 程序负责将所有已获取的资源返回到操作系统。未被释放未使用的资源是资源泄露（*leak*）。现代 C++ 通过声明堆栈上的对象，尽可能避免使用堆内存。
+
+当对象初始化时，它会获取它拥有的资源，并且该对象负责在其析构函数中释放资源。在堆栈上声明拥有资源的对象本身。对象拥有资源的原则也称为 “资源获取即初始化” (RAII)。当拥有资源的堆栈对象超出范围时，会自动调用其析构函数。C++ 中的垃圾回收与对象生存期密切相关，是确定性的。资源始终在程序中的已知点释放。
+
+```c++
+struct buffer {
+	friend void print(buffer&);
+private:
+	char* buf;
+	size_t size;
+public:
+	buffer(size_t size);
+	int writeString(string str);
+	~buffer();
+};
+buffer::buffer(size_t size) :size{ size } {
+	buf = new char[size];
+}
+buffer::~buffer() {
+	cout << "delete buffer" << endl;
+	delete[] buf;
+}
+int buffer::writeString(string str) {
+	int n = 0;
+	try {
+		for (char c : str) {
+			if (n >= size - 1)
+				break;
+			buf[n++] = c;
+		}
+	}
+	catch (exception e) {
+		return -1;
+	}
+	buf[n] = '\0';
+	return n;
+}
+void print(buffer& buf) {
+	printf("%s\n", buf.buf);
+}
+
+void WriteToBuffer(std::string& str) {
+	buffer b(512);
+	int	n = b.writeString(str);
+	if (n > 0)
+		print(b);
+}
+
+int main()
+{
+	string s{ "Hello World" };
+	WriteToBuffer(s);
+}
+// Hello World
+// delete buffer
+```
+
+C++ 的设计可确保对象在超出范围时被销毁。也就是说，它们在块被退出时以与构造相反的顺序被摧毁。销毁对象时，将按特定顺序销毁其基项和成员。 在全局范围内在任何块之外声明的对象可能会导致问题。
+
+可以使用智能指针处理对象所需内存资源的分配和删除。使用智能指针将不需要在类中显式定义析构函数。使用智能指针进行内存分配，可以消除内存泄漏的可能性。此模型适用于其他资源，例如文件句柄或套接字。
+
+
+```c++
+#include <memory>
+class widget
+{
+private:
+    std::unique_ptr<int[]> data;
+public:
+    widget(const int size) { data = std::make_unique<int[]>(size); }
+    void do_something() {}
+};
+
+void usingWidget() {
+    widget w(1000000);  // lifetime automatically tied to enclosing scope
+                        // constructs w, including the w.data gadget member
+    w.do_something();
+} // automatic destruction and deallocation for w and w.data
+```
 
 >---
 #### 友元
@@ -4576,7 +4658,118 @@ int main()
 }
 ```
 
+>---
+#### 构造函数
 
+创建类时初始化其成员或调用成员函数，可以使用构造函数；可以声明 `inline`、`explicit`、`friend` 或 `constexpr`。构造函数可以初始化一个 `const`、`volatile` 或 `const volatile` 的对象。
+
+构造函数可以选择具有成员初始化表达式列表，该列表会在构造函数主体运行之前初始化类成员。`const` 成员和引用类型的成员必须在成员初始化表达式列表中进行初始化。
+
+```c++
+struct Point {
+	constexpr Point() :x{}, y{} {};  // 带有成员初始化表达式的默认构造函数
+	explicit Point(int x, int y) :x(x), y(y) {}; // 重载 
+	int x, y;
+};
+
+class Axis {
+	Axis() = delete;   // 删除默认构造函数
+public:
+	Axis(Point p) {}
+};
+
+int main() {
+	Point p1; // 未初始化对象
+	const Point origin{};
+	Point p2{ 1,1 };
+
+	// 无法创建
+	Axis a{};
+	Axis as[6];
+	// 可以是
+	Axis a0{ Point{1,1} };
+	Axis as0[3]{ Point{0,0}, Point{1,1}, Point{-1,-1} };
+}
+```
+
+> *委托构造函数*
+
+许多类具有执行类似操作（例如，验证参数）的多个构造函数；可以使用委托构造函数减少代码重复性：
+
+```c++
+struct Point {
+	Point(int x, int y, int z) :x{ x }, y{ y }, z{ z } {};
+	Point(int x, int y) : Point(x, y, 0) {};
+	Point() : Point(0, 0, 0) {};
+	int x, y, z;
+};
+```
+
+应避免调用循环导致堆栈溢出。
+
+> *复制构造函数*
+
+复制构造函数通过从相同类型的对象复制成员值来初始化对象。一般简单类型可以使用自动生成的复制构造函数，但成员存在指针时，自动生成复制构造只会复制指针值，因此需要自定义声明以分配指针内存；其签名可以是：
+
+```c++
+Point(Point& other);   // Avoid if possible--allows modification of other.
+Point(const Point& other);
+Point(volatile Point& other);
+Point(volatile const Point& other);
+```
+
+定义复制构造函数还需要定义相应的复制赋值运算符：
+
+```c++
+Point& operator=(Point& other);
+Point& operator=(const Point& other);
+Point& operator=(volatile Point& other);
+Point& operator=(volatile const Point& other);
+```
+
+可以删除赋值构造以阻止对象被复制：
+
+```c++
+Point (const Point&) = delete;
+```
+
+下面是一个可复制 *buffer*：
+
+```c++
+struct buffer {
+// ...
+	buffer(buffer&& other) noexcept :size(0), index{ 0 }, buf(nullptr) {
+		cout << "move buffer" << endl;
+		*this = std::move(other);
+	};
+
+	buffer& operator = (buffer&& other)noexcept {
+		if (this != &other) {
+			delete[] buf;
+			size = other.size;
+			index = other.index;
+			buf = other.buf;
+			other.buf = nullptr;
+		}
+		return *this;
+	}
+// ...
+}
+int main()
+{
+	buffer b{ 512 };
+	b.Write("Hello World!");
+	buffer b2 = std::move(b);
+	b2.Write("JimryYchao");
+	Println(b2);
+}
+/*
+	create a new buffer
+	move buffer
+	Hello World!JimryYchao
+	delete buffer
+*/
+```
 
 
 ---
