@@ -4406,6 +4406,84 @@ int main()
 可以使用指向基类 `GetState` 的指针调用虚函数 `VFuncBase`。 这并不意味着调用的函数是该函数的基类版本，它可能在派生类中进行的重写 `override`，或多重继承中的某个中间派生类的重写方法。
 
 >---
+#### 类初始化
+
+没有构造类型的类类型的对象可以直接声明或使用初始化器（或空大括号），按类中声明的成员的顺序提供列表元素。
+
+```c++
+struct TempData
+{
+	int StationId;
+	time_t timeSet;
+	double current;
+};
+
+int main()
+{
+    // 调用自动生成的默认构造
+	TempData t0;   
+	TempData t1{};
+
+    // timeSet 后面的元素零初始化
+	TempData t2{ 1, 1000 };  
+	TempData t3(1, 100);     
+    
+    // 全部列出
+    TempData t4{ 1, 100, 0 };  
+	TempData t5(1, 100, 0);
+
+	TempData t();  // 含义不明确，声明返回 TempData 的函数 t4
+}
+```
+
+具有非默认构造函数，则类成员显示顺序是对应参数在构造函数中的显示顺序。
+
+```c++
+struct TempData
+{
+	int StationId;
+	time_t timeSet;
+	double current;
+public:
+	TempData() = default;
+	TempData(int stationid, time_t tmset) :StationId{ stationid }, timeSet{ tmset } {
+		current = 0;
+	}
+};
+
+int main()
+{
+	// 调用默认构造
+	TempData t0;    
+	TempData t1{};  
+
+	// 调用 TempData(int, time_t)
+	TempData t2{ 1, 1000 };  
+	TempData t3(1, 100);    
+
+	TempData t();  // 含义不明确，声明返回 TempData 的函数 t4
+}
+```
+
+`initializer_list` 类表示可以在构造函数和其他上下文中使用的指定类型的对象的列表。 
+
+```C++
+#include<initializer_list>
+
+initializer_list<int> ilist1{ 5, 6, 7 };
+```
+
+标准库容器类以及 `string`、`wstring` 和 `regex` 具有 `initializer_list` 构造函数
+
+```c++
+vector<int> v1{ 9, 10, 11 };
+map<int, string> m1{ {1, "a"}, {2, "b"} };
+string s{ 'a', 'b', 'c' };
+regex rgx{ 'x', 'y', 'z' };
+```
+
+
+>---
 #### 友元
 
 类向不属于类成员的函数或单独类中的所有成员授予成员级访问权限非常有用。这些 *Free* 函数和类称为 “友元”，由 `friend` 标记。

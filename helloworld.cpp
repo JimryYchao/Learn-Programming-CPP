@@ -5,6 +5,7 @@
 #include <iostream>
 #include <cassert>
 #include <bitset>
+#include <initializer_list>
 using namespace std;
 
 int main()
