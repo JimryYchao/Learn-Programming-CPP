@@ -3489,8 +3489,6 @@ void S::foo() {} // 定义, S::foo 调用
 void foo(){}   // Free 函数； ::foo() 调用
 ```
 
-
-
 >---
 #### 函数声明修饰符
 
@@ -5322,6 +5320,188 @@ cout << pr << endl;				// 2
 cout << d.nMonth << endl;		// 1
 cout << r << endl;				// 2
 ```
+
+---
+### Lambda 表达式
+
+```c++
+[=]<0> ( arug-list<1> ) mutable<2> throw( exception )<3> ->return-type<4> 
+{
+	// statements
+}
+```
+
+Lambda 表达式组成部分：
+0. 捕获子句；
+1. 参数列表；(可选)
+2. mutable 规范 (可选)
+3. 异常规范 (可选)
+4. 尾随返回类型 (可选)
+
+捕获子句用以访问或捕获周围范围的变量，空 `[ ]` 表示 Lambda 主体不访问封闭范围的变量。可以使用默认捕获模式来指示如何捕获 Lambda 体中引用的任何外部变量：
+- `[&]` 通过引用捕获引用的所有变量；
+- `[=]` 表示通过值捕获访问。
+
+可以使用默认捕获模式，然后为特定变量显式指定相反的模式；例如 *lambda* 函数体通过引用访问外部变量 `total` 并通过值访问外部变量 `factor`，以下捕获子句有效：
+
+```c++
+[&total, factor]
+[factor, &total]
+[&, factor]
+[=, &total]
+```
+
+标识符或 `this` 在 *capture* 子句中出现的次数不能超过一次。
+
+```c++
+struct S { void f(int i); };
+
+void S::f(int i) {
+    [&, i]{};      // OK
+    [&, &i]{};     // ERROR: i preceded by & when & is the default
+    [=, this]{};   // ERROR: this when = is the default
+    [=, *this]{ }; // OK: captures this by value. See below.
+    [i, i]{};      // ERROR: i repeated
+}
+```
+
+捕获后跟省略号是一个包扩展，如以下可变参数模板示例：
+
+```C++
+template<class... Args>
+void f(Args... args) {
+    auto x = [args...] { return g(args...); };
+    x();
+}
+```
+
+要在类成员函数体中使用 Lambda 表达式，要将 `this` 指针传递给 *capture* 子句，以提供对封闭类的成员函数和数据成员的访问权限。可以通过在 *capture* 子句中指定 `*this` 通过值捕获 `this` 指针。通过值捕获会将整个闭包复制到调用 Lambda 的每个调用点。只能捕获具有自动存储持续时间的变量。
+
+引用捕获可用于修改外部变量，而值捕获却不能实现此操作。`mutable` 允许修改副本，而不能修改原始项。引用捕获会反映外部变量的更新，而值捕获不会。
+
+引用捕获引入生存期依赖项，而值捕获却没有生存期依赖项。在异步 Lambda 中通过引用捕获局部变量，该局部变量将很容易在 Lambda 运行时消失。 代码可能会导致在运行时发生访问冲突。
+
+可以在 *capture* 子句中使用通用捕获引入一个新的变量，从周边范围捕获只移动的变量：
+
+```c++
+pNums = make_unique<vector<int>>(nums);
+//...
+      auto a = [ptr = move(pNums)]()
+        {
+           // use ptr
+        };
+```
+
+参数列表类似与函数参数列表，如果参数是泛型，可以使用 `auto` 作为参数的类型说明符；编译器将为其创建模板。参数列表中的每个 `auto` 实例等效于一个不同的类型参数：
+
+```c++
+auto y = [] (auto first, auto second)
+{
+    return first + second;
+};
+```
+
+没有参数的情况下且 Lambda 不包含异常规范、`mutable` 和尾随返回值时，可以省略括号。
+
+```c++
+auto sixTriple = []{
+	return 666;
+}
+```
+
+通常 Lambda 的函数调用是 *const-by-value*，可以声明 `murable` 取消限定，Lambda 表达式的主体可以修改通过值捕获的变量。
+
+```c++
+int m = 0;
+int n = 0;
+[&, n] (int a) mutable { m = ++n + a; }(4);
+cout << m << endl << n << endl;  // 5, 0
+```
+
+
+可以使用 `noexcept` 异常规范来指示 Lambda 表达式不会引发任何异常。 
+
+```c++
+[]() noexcept {throw 0; }();  // Warning !
+```
+
+将自动推导 Lambda 表达式的返回类型，除非指定了 *trailing-return-type*:
+
+```c++
+auto foo [](){ return 666; };  // int foo()
+auto bar = []()-> long {  return 666; };  // bar y()
+```
+
+在常量表达式中允许初始化捕获或引入的每个数据成员时，可以将 Lambda 表达式声明为 `constexpr`（或在常量表达式中使用它）；
+```c++
+int y = 32;
+auto answer = [y]() constexpr
+{
+    int x = 10;
+    return y + x;
+};
+
+constexpr int Increment(int n)
+{
+    return [n] { return n + 1; }();
+}
+```
+
+如果 Lambda 结果满足 `constexpr` 函数的要求，则它是隐式的 `constexpr`。
+
+```c++
+auto answer = [](int n)
+    {
+        return 32 + n;
+    };
+
+    constexpr int response = answer(10);
+```
+
+Lambda 表达式已类型化，可以将其分配给 `auto` 变量或 `function` 对象：
+
+```c++
+#include <functional>
+#include <iostream>
+using namespace std;
+int main()
+{
+    // Assign the lambda expression that adds two numbers to an auto variable.
+    auto f1 = [](int x, int y) { return x + y; };
+    cout << f1(2, 3) << endl;
+
+    // Assign the same lambda expression to a function object.
+    function<int(int, int)> f2 = [](int x, int y) { return x + y; };
+    cout << f2(3, 4) << endl;
+}
+```
+
+可以使用 `function` 类，使得 lambda 表达式具有类似高阶函数的行为。
+
+```c++
+auto add = [](int x) -> function<int(int)> {
+    return [=](int y) { return x + y; };
+};
+```
+
+可以在函数中显式使用 `this` 指针：
+
+```c++
+// capture "this" by reference
+void ApplyScale(const vector<int>& v) const
+{
+   for_each(v.begin(), v.end(),
+      [this](int n) { cout << n * _scale << endl; });
+}
+
+// capture "this" by value
+void ApplyScale2(const vector<int>& v) const
+{
+   for_each(v.begin(), v.end(),
+      [*this](int n) { cout << n * _scale << endl; });
+}
+```
+
 
 ---
 ### 异常处理
