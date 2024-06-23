@@ -377,6 +377,38 @@ int main() {
 
 递归函数可以用内联代码替换为 `inline_depth pragma` 指定的深度，最多 16 个调用。 该深度之后，递归函数调用被视为对函数实例的调用。 内联启发式方法对递归函数检查到的深度不能超过 16。 `inline_recursion pragma` 控制当前进行展开的函数的内联展开。 若要了解相关信息，请参阅内联函数展开 (/Ob) 编译器选项。
 
+---
+### 类和结构
+
+### 匿名结构
+
+利用 Microsoft C 扩展，可以在另一个结构中声明结构变量，而无需为其指定名称。这些嵌套结构称为匿名结构。C++ 不允许匿名结构。
+
+```C++
+#include <stdio.h>
+struct phone
+{
+    int  areacode;
+    long number;
+};
+
+struct person
+{
+    char   name[30];
+    char   gender;
+    int    age;
+    int    weight;
+    struct phone;    // Anonymous structure; no name needed
+} Jim;
+
+int main()
+{
+    Jim.number = 1234567;
+    printf_s("%d\n", Jim.number);
+}
+//Output: 1234567
+```
+
 
 ---
 ### 异常处理

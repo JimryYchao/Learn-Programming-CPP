@@ -5265,8 +5265,63 @@ PTValue p{ 1,2 };
 >---
 #### 指向成员的指针
 
+指向成员的指针的声明是指针声明的特例；指向成员的指针不能指向类的静态成员、引用类型的成员或 `void`。指向类成员的指针具有该成员的类型的类型信息和该成员所属的类的类型信息。指向成员的指针运算符（`.*` 和 `->*`）返回表达式左侧上指定的对象的特定类成员的值。 
 
+```c++
+class Window
+{
+public:
+   Window();                               // Default constructor.
+   Window( int x1, int y1,                 // Constructor specifying
+   int x2, int y2 );                       // Window size.
+   bool SetCaption( const char *szTitle ); // Set window caption.
+   const char *GetCaption();               // Get window caption.
+   char *szWinCaption;                     // Window caption.
+};
 
+int test() {
+	const char* (Window:: * pwGetCaption)() = &Window::GetCaption;
+	char* Window::* pwCaption = &Window::szWinCaption;
+	bool (Window:: * pwSetCaption)(const char*) = &Window::SetCaption;
+
+	Window w;  // .* 从对象调用
+	auto cap = (w.*pwGetCaption)();
+	bool ok = (w.*pwSetCaption)("Set Caption");
+	char* wcap = w.*pwCaption;
+
+	Window* pw = new Window;  // ->* 从对象指针调用
+	cap = (pw->*pwGetCaption)();
+	ok = (pw->*pwSetCaption)("Set Caption");
+	wcap = pw->*pwCaption;
+}
+```
+
+>---
+#### 位域
+
+类和结构可包含比整型类型占用更少存储空间的位域成员，它必须是整数类型或枚举。位域说明符是在程序中访问成员的名称（可选），匿名位域一般用于填充；宽度为 0 的未命名位域强制将下一个位域与下一个类型边界对齐，其中类型是成员的类型。
+
+```c++
+struct Date {
+   unsigned nWeekDay  : 3;    // 0..7   (3 bits)
+   unsigned nMonthDay : 6;    // 0..31  (6 bits)
+   unsigned           : 0;    // Force alignment to next boundary.
+   unsigned nMonth    : 5;    // 0..12  (5 bits)
+   unsigned nYear     : 8;    // 0..100 (8 bits)
+};
+```
+
+如果对类型 `const T&` 的引用的初始值设定项是引用类型为 `T` 的位域的 `lvalue`，引用不会直接绑定到位域。相反，引用会绑定到一个临时初始值设定项以保留位域的值。不能获取位域的地址，或使用位域初始化非 `const` 引用。
+
+```c++
+Date d{ 1,1,1,1 };
+const auto& r = d.nMonth;   // 临时对象，并不是引用真正的 d.nMonth
+unsigned int& pr = const_cast<unsigned int&> (r);
+pr = 2;
+cout << pr << endl;				// 2
+cout << d.nMonth << endl;		// 1
+cout << r << endl;				// 2
+```
 
 ---
 ### 异常处理
