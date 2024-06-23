@@ -4315,7 +4315,7 @@ private:
 int TestRun::_instances{ 0 };
 ```
 
-非静态数据成员声明符可以包含初始值设定项；静态数据成员必须是常量 (`constexpr`) 才能包含初始值设定项，否则必须在文件范围内定义静态数据成员并在此范围内将其初始化；静态成员具有外部链接但可以添加可访问性。成员函数可以在类主体中声明定义或在外部定义，内部定义但会隐式声明为 `inline`。
+非静态数据成员声明符可以包含初始值设定项；静态数据成员的声明不被视为一个定义，因此必须在文件范围内定义静态数据成员，除非是常量 (`constexpr` 或 `const`) 才能包含初始值设定项；静态成员具有外部链接但可以添加可访问性。成员函数可以在类主体中声明定义或在外部定义，内部定义但会隐式声明为 `inline`。
 
 ```c++
 class Stat {};
@@ -4326,11 +4326,46 @@ public :
 	static Stat GetStat(S&);
 private:
 	static S* s_instance;
+    static int Id;
 	Stat s_stat{};
 };
 Stat S::GetStat(S& s) { return s.s_stat; };
 const S& S::Instance() { return *s_instance; };
 S* S::s_instance = new S{};
+int S::Id = 110;  // 声明定义并初始化为 110
+```
+
+不引用类类型对象时使用限定名称访问静态成员；对象可以使用 `.` 或 `->`：
+
+```c++
+struct S {
+	static const int Value = 10086;
+};
+
+cout << S::Value << endl;
+S s{};
+s.Value == 10010;
+```
+
+>---
+#### 可变数据成员
+
+`mutable` 声明一个类的非静态、非常量和非引用的可变数据成员，它可以在 `const` 限定函数进行更改和赋值。 
+
+```c++
+class X
+{
+public:
+    bool GetFlag() const
+    {
+        m_accessCount++;
+        // m_flag = true;  // illegal
+        return m_flag;
+    }
+private:
+    bool m_flag;
+    mutable int m_accessCount;
+};
 ```
 
 >---
@@ -4737,6 +4772,72 @@ Point (const Point&) = delete;
 
 ```c++
 struct buffer {
+private:
+	friend int Println(buffer&);
+	char* buf;
+	size_t index;
+	size_t size;
+public:
+	buffer(size_t size) :size{ size }, buf{ new char[size] }, index{ 0 } {}
+	buffer(buffer& other) noexcept :size(0), index{ 0 }, buf(nullptr) {
+		cout << "copy buffer" << endl;
+		size = other.size;
+		index = other.index;
+		buf = new char[size];
+		copy(other.buf, other.buf + size, buf);
+	};
+	int Write(string str);
+
+	buffer& operator = (buffer& other)noexcept {
+		if (this != &other) {
+			delete[] buf;
+			size = other.size;
+			index = other.index;
+			buf = new char[size];
+			copy(other.buf, other.buf + size, buf);
+		}
+		return *this;
+	}
+	operator string () {
+		return string{ buf, index };
+	}
+	~buffer() { delete[] buf; }
+};
+int Println(buffer& bfr) {
+	printf("%s\n", string{ bfr }.c_str());
+	int n = bfr.index;
+	bfr.index = 0;
+	bfr.buf[0] = '\0';
+	return n;
+}
+int buffer::Write(string str) {
+	int n = str.length();
+	size_t able = size - index - 1;
+	if (str.length() >= able)
+		n = able;
+	copy(str.c_str(), str.c_str() + n, buf + index);
+	index += n;
+	buf[index] = '\n';
+	return n;
+}
+int main()
+{
+	buffer b{ 512 };
+	b.Write("Hello World!");
+	buffer b2 = b;
+	b2.Write("JimryYchao");
+	Println(b2);
+}
+/*
+copy buffer
+Hello World!JimryYchao
+*/
+```
+
+> *移动构造函数*
+
+```c++
+struct buffer {
 // ...
 	buffer(buffer&& other) noexcept :size(0), index{ 0 }, buf(nullptr) {
 		cout << "move buffer" << endl;
@@ -4759,16 +4860,54 @@ int main()
 {
 	buffer b{ 512 };
 	b.Write("Hello World!");
-	buffer b2 = std::move(b);
-	b2.Write("JimryYchao");
-	Println(b2);
+	buffer b3 = std::move(b);
+	b3.Write("CXX");
+	Println(b3);
 }
 /*
-	create a new buffer
-	move buffer
-	Hello World!JimryYchao
-	delete buffer
+    move buffer
+    Hello World!CXX
 */
+```
+
+> 转换构造函数
+
+在某些情况下，编译器可以利用转换构造函数进行一些隐式转换，形如：
+
+```c++
+struct money {
+	money(long double n) : account{ n } {};   // 转换构造函数
+private:
+	long double account;
+};
+int main()
+{
+	money m0 = 3.14;
+	money m1 = 3.14L;
+	money m2 = 10086;
+	money m3 = 2.71f;
+}
+```
+
+转换运算符用于将类对象转换为目标类型：
+
+```c++
+struct money {
+private:
+	long double account;
+public:
+	money(long double n) : account{ n } {};
+	operator long double() {   // 转换运算符
+		return account;
+	};
+};
+int main()
+{
+	double d0 = money(3.14);
+	double d1 = money(3.14L);
+	double d2 = money(10010);
+	double d3 = money(2.71f);
+}
 ```
 
 >---
@@ -5016,6 +5155,85 @@ int main() {
 // Derived
 // Base
 ```
+
+>---
+#### 用户定义类型转换
+
+转换会从其他类型的值生成某个类型的新值。标准转换内置于 C++ 并支持其内置类型，可以创建用户定义的转换，以转换到用户定义的类型、从这些类型转换或者在这些类型之间执行转换。
+
+转换可以是显式或隐式；在以下情况下尝试隐式转换：
+- 提供给函数的自变量与匹配参数的类型不同；
+- 从函数返回的值与函数返回类型的类型不同；
+- 初始值表达式与其初始化的对象的类型不同；
+- 用于控制条件语句、循环构造或切换的表达式不具有对其进行控制时所需的结果类型；
+- 提供给运算符的操作数与匹配的操作数参数的类型不同；对于用户定义的运算符，每个操作数都必须与匹配的操作数参数的类型相同。
+
+隐式转换可能会出现意外的不确定性；当转换程序点提供两个或多个用户定义的用于执行相同转换的转换时，该转换将被视为不明确。例如多重继承中，该转换在多个基类中定义；不明确的函数调用。
+
+`explicit` 关键字通知编译器指定的转换不能用于执行隐式转换；它们只能用于执行显式强制转换或直接初始化。
+
+> *显式转换构造函数*
+
+```c++
+class Money {
+public:
+	Money(int m)  {}   // 转换构造
+};
+void display(Money m) {}
+int main() {
+	Money m{ 10 };
+	display(m);
+    dispaly(3);       // 隐式转换; int -> Money
+	display(3.14);    // 隐式转换; double -> int -> Money
+	display(3.1415f); // 隐式转换; float -> int -> Money
+}
+```
+
+通过将转换构造函数声明为 `explicit`，它只能用于执行对象的直接初始化或执行显式强制转换。这将阻止接受类类型的自变量的函数同样隐式接受转换构造函数的源类型的自变量，并且将阻止从该源类型的值复制初始化类的类型。
+
+```c++
+class Money {
+public:
+	explicit Money(int m)  {}
+};
+void display(Money m) {}
+
+Money m{ 10 };
+display(m);       // ok; int -> Money 
+display(3.14);    // err
+display(3.1415f); // err
+```
+
+> *显式转换函数*
+
+```c++
+class Money {
+public:
+	Money(int) {}
+	operator int() { return 0; }
+};
+
+Money m{ 10 };
+int a = m;
+double d = m;
+```
+
+当转换函数声明为显式函数时，它只能用于执行显式强制转换：
+
+```c++
+class Money {
+public:
+	Money(int) {}
+	explicit operator int() { return 0; }
+};
+	
+Money m{ 10 };
+int a = int(m);
+double d = double(m);  // 不存在从 douvle -> int 的转换函数
+```
+
+
+
 
 ---
 ### 异常处理
