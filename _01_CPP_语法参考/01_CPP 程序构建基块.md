@@ -4771,6 +4771,251 @@ int main()
 */
 ```
 
+>---
+#### 析构函数
+
+析构函数在对象超出范围或通过调用 `delete` 或 `delete[]` 显式销毁对象时自动调用。例如，声明 `String` 类的析构函数：`~String()`。不能提取析构函数的地址，派生类不继承其基类的析构函数。
+
+析构函数可以声明为 `virtual`。通过使用虚拟析构函数，无需知道对象的类型即可销毁对象；使用虚函数机制调用该对象的正确析构函数。析构函数也可以声明为抽象类的纯虚函数。
+
+```c++
+class Base {
+	virtual void Foo() = 0;
+	virtual ~Base() = 0;
+};
+```
+
+当下列事件之一发生时，将调用析构函数：
+- 具有块范围的本地（自动）对象超出范围。
+- 使用 `delete` 来解除分配使用 `new` 分配的对象。使用 `delete[]` 会导致未定义的行为。
+- 使用 `delete[]` 来解除分配使用 `new[]` 分配的对象。使用 `delete` 会导致未定义的行为。
+- 临时对象的生存期结束。
+- 程序结束，并且存在全局或静态对象。
+- 使用析构函数的完全限定名显式调用了析构函数。
+- 析构函数可以随意调用类成员函数和访问类成员数据。
+
+完整的析构过程是：
+- 将调用该类的析构函数，并且会执行该析构函数的主体。
+- 按照非静态成员对象的析构函数在类声明中的显示顺序的相反顺序调用这些函数。用于这些成员的构造的可选成员初始化列表不影响构造或析构的顺序。
+- 非虚拟基类的析构函数以声明的相反顺序被调用。
+  
+    ```c++
+    struct A { ~A() { cout << "A\n"; } };
+    struct B { ~B() { cout << "B\n"; } };
+    struct C : public A, public B { ~C() { cout << "CAB\n"; } };
+    struct D : public A, public B { ~D() { cout << "DAB\n"; } };
+    struct E : public C, public D, virtual public B { ~E() { cout << "ECDB\n"; } };
+    int main() {
+    	E e{};  // ECDB, DAB, B, A, CAB, B, A, B
+    }
+    ```
+
+- 虚拟基类的析构函数以声明的相反顺序被调用。按照与虚拟基类在定向非循环图形中显示的顺序的相反顺序调用这些虚拟基类的析构函数（深度优先、从左到右、后序遍历）。
+
+    ```c++
+    struct A { ~A() { cout << "A\n"; } };
+    struct B { ~B() { cout << "B\n"; } };
+    struct C : virtual public A, virtual public B { ~C() { cout << "CAB\n"; } };
+    struct D : virtual public A, virtual public B { ~D() { cout << "DAB\n"; } };
+    struct E : public C, public D, virtual public B { ~E() { cout << "ECDB\n"; } };
+    int main() {
+    	E e{};
+    }
+    // ECDB, DAB, CAB, B, A
+    ```
+
+一般很少需要显式调用析构函数。但是，对置于绝对地址的对象进行清理会很有用。这些对象通常使用采用位置参数的用户定义的 `new` 运算符进行分配。`delete` 运算符不能释放该内存，它不是从自由存储区分配的。显式对析构函数的调用可以执行相应的清理，无需关心对象类型是否定义了析构函数，未定义的析构函数调用无效。显式调用 `~String`：
+
+```c++
+s.String::~String();     // non-virtual call
+ps->String::~String();   // non-virtual call
+
+s.~String();       // Virtual call
+ps->~String();     // Virtual call
+```
+
+如果类获得了资源，就需要析构函数，为了安全地管理资源，它可能必须实现复制构造函数和复制赋值。显式定义析构函数、复制构造函数或复制赋值运算符可防止对移动构造函数和移动赋值运算符进行隐式定义。
+
+如果用户未定义这些特殊函数，编译器会对其进行隐式定义。隐式生成的构造函数和赋值运算符执行浅层的、成员式的复制，只会复制指针本身。例如，隐式生成的复制构造函数将使指针 `str1.text` 和 `str2.text` 引用同一内存，当从 `copy_strings()` 返回时，该内存将被删除两次，这是未定义行为：
+
+```c++
+void copy_strings()
+{
+   String str1("I have a sense of impending disaster...");
+   String str2 = str1; 
+   // str1.text and str2.text now refer to the same object
+} 
+// delete[] _text; deallocates the same memory twice
+// undefined behavior
+```
+
+>---
+#### 继承
+
+继承从现有类派生新类；可以是单一继承，或多重继承：
+
+```c++
+class Derived : Base-Class [, Base-Class1, ...]
+{
+    // member list
+};
+Base-Class = [virtual] [access-specifier] Base-class-Name
+```
+
+继承过程将创建一个新的派生类，它由基类的成员加上派生类添加的任何新成员组成。在多重继承中，可以构建一个继承关系图，其中相同的基类是多个派生类的一部分。
+
+由于一个类可能多次成为派生类的间接基类，虚拟基类提供了一种节省空间和避免使用多重继承的类层次结构中出现多义性的方法。
+
+每个非虚拟对象包含在基类中定义的数据成员的一个副本。这种重复浪费了空间，并要求在每次访问基类成员时都必须指定所需的基类成员的副本。
+
+当将某个基类指定为虚拟基时，该基类可以多次作为间接基而无需复制其数据成员。基类的数据成员的单个副本由将其用作虚拟基的所有基类共享。
+
+多重继承使得沿多个路径继承名称成为可能。 沿这些路径的类成员名称不一定是唯一的。这些名称冲突存在 “多义性”。任何引用类成员的表达式必须采用明确的引用，可以通过限定名称及其类名消除多义性：
+
+```c++
+class A {
+public:
+    unsigned a;
+    unsigned b();
+};
+
+class B {
+public:
+    unsigned a();  // class A also has a member "a"
+    int b();       //  and a member "b".
+    char c;
+};
+
+// Define class C as derived from A and B.
+class C : public A, public B {};
+
+C *pc = new C;
+pc->b();  // b 不明确
+
+pb->B::b();  // ok
+```
+
+通过一个继承关系图到达多个名称（函数、对象或枚举器）是可能的。这种情况被视为与非虚拟基类一起使用时目的不明确。如果某个名称在两个类中定义并且一个类派生自另一个类，则该名称可控制另一个名称。从指向类类型的指针或对类类型的引用的显式或隐式转换可能会导致多义性。 
+
+```c++
+class A { };
+class B : public A {};
+class C : public A {};
+class D : public B, public C {};
+
+A* pa = new D;  // 从 D 到 A 的转换是不明确的；A 无法辨别从 B 还是 C 传递
+// 需要显式指定要使用的子对象
+A* pab = (A*)(B*)(new D);
+A* pac = (A*)(C*)(new D);
+```
+
+如果使用虚拟基类，则函数、对象、类型和枚举数可通过多重继承路径到达。
+
+```c++
+class A { };
+class B : public virtual A {};
+class C : public virtual A {};
+class D : public B, public C {};
+
+A* pa = new D; 
+```
+
+>---
+#### 虚函数和函数重写
+
+虚函数是应在派生类中重新定义的成员函数，当使用指针或对基类的引用来引用派生的类对象时，可以为该对象调用虚函数并执行该函数的派生类版本。重写虚方法的 `virtual` 不是必需的；
+
+```c++
+class Account {
+public:
+   Account( double d ) { _balance = d; }
+   virtual ~Account() {}
+   virtual double GetBalance() { return _balance; }
+   virtual void PrintBalance() { cerr << "Error. Balance not available for base type." << endl; }
+private:
+    double _balance;
+};
+
+class CheckingAccount : public Account {
+public:
+   CheckingAccount(double d) : Account(d) {}
+   void PrintBalance() { cout << "Checking account balance: " << GetBalance() << endl; }
+};
+
+class SavingsAccount : public Account {
+public:
+   SavingsAccount(double d) : Account(d) {}
+   void PrintBalance() { cout << "Savings account balance: " << GetBalance(); }
+};
+
+int main() {
+   // Create objects of type CheckingAccount and SavingsAccount.
+   CheckingAccount checking( 100.00 );
+   SavingsAccount  savings( 1000.00 );
+
+   // Call PrintBalance using a pointer to Account.
+   Account *pAccount = &checking;
+   pAccount->PrintBalance();  // call checking.PrintBalance
+
+   // Call PrintBalance using a pointer to Account.
+   pAccount = &savings;
+   pAccount->PrintBalance();  // call savings.PrintBalance
+}
+```
+
+
+>---
+#### 抽象类和纯虚函数
+
+抽象类作为可从中派生更具体的类的一般概念的表达。无法创建抽象类类型的对象，但可以使用指向抽象类类型的指针和引用。可以通过声明至少一个纯虚拟成员函数来创建抽象类。派生自抽象类的类必须实现纯虚函数或者它们必须也是抽象类。
+
+```c++
+class A {
+	virtual void fooA() = 0;
+};
+class B : A {
+	virtual void fooB() = 0;
+};
+class C : B {
+	void fooA() {}
+	void B::fooB() {}
+};
+```
+
+抽象类不能用于变量或成员数据、自变量类型、函数返回类型、显式转换的类型；抽象类的构造函数调用一个纯虚函数，结果都是不确定的。
+
+抽象类中的纯虚函数可以定义或具有实现。只能使用完全限定的语法调用此类函数；在设计基类包含纯虚析构函数的类层次结构时，在对象销毁期间会始终调用基类析构函数；必须对抽象类的纯虚函数进行实现；
+
+例如，纯虚函数 `base::~base` 是从 `derived::~derived` 隐式调用的，纯虚函数 `~base` 的空实现确保至少函数的某个实现存在。此类函数必须具有实现，否则调用会在链接时导致错误。
+
+```c++
+class Base {
+	virtual void fooBase() = 0;
+protected:
+	virtual ~Base() = 0;
+};
+Base::~Base() { cout << "Base\n"; }
+class A :protected Base {
+	virtual void foo() = 0;
+};
+class Derived :protected A {
+	// 纯虚函数实现
+	void Base::fooBase();  // 先声明，后外部实现
+public:
+	void A::foo() { fooBase(); }  // 内部内联实现
+public:
+	~Derived() { cout << "Derived\n"; }
+};
+void Derived::fooBase() { cout << "fooBase\n"; }
+
+int main() {
+	Derived c{}; 
+	c.foo();
+}
+// fooBase
+// Derived
+// Base
+```
 
 ---
 ### 异常处理

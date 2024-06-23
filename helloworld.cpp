@@ -8,6 +8,13 @@
 #include <initializer_list>
 using namespace std;
 
+class Base
+{
+public:
+    virtual void Foo() = 0;
+    virtual ~Base() = 0;
+};
+
 int main()
 {
 }
