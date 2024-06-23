@@ -3415,7 +3415,7 @@ int test() {
 ---
 ### Union
 
-联合是一个用户定义类型，其中所有成员都共享同一个内存位置。它始终仅使用足以存储最大成员的内存。如果任何成员类型具有不常用的 constructor（构造函数），则必须编写代码来显式 construct（构造）和销毁该成员。`union` 无法存储引用。`union` 也不支持继承。直接分配初始化表达式时，将该表达式的结果分配给 `union` 的第一个字段
+联合是一个用户定义类型，其中所有成员都共享同一个内存位置。它始终仅使用足以存储最大成员的内存。如果任何成员类型具有不常用的 constructor（构造函数），则必须编写代码来显式 construct（构造）和销毁该成员。`union` 无法存储引用。`union` 也不支持继承。直接分配初始化表达式时，将该表达式的结果分配给 `union` 的第一个字段。
 
 ```c++
 
@@ -3464,7 +3464,7 @@ static union {
 // 结构中的匿名 union
 struct Input
 {
-    WeatherDataType type;
+    WeatherDataType type;，
     union
     {
         TempData temp;
@@ -3474,7 +3474,6 @@ struct Input
 ```
 
 `union` 可以包含具有 `class` 类型的非 `static` 数据成员；如果包含这样一个成员，编译器会自动将非用户提供的任何特殊成员函数标记为 `delete`。如果 `union` 是 `class` 或 `struct` 中的匿名联合，则 `class` 或 `struct` 的非用户提供的任何特殊成员函数都会被标记为 `delete`。
-
 
 ---
 ### 函数
@@ -4773,7 +4772,7 @@ Point (const Point&) = delete;
 ```c++
 struct buffer {
 private:
-	friend int Println(buffer&);
+	friend size_t Println(buffer&);
 	char* buf;
 	size_t index;
 	size_t size;
@@ -4786,7 +4785,7 @@ public:
 		buf = new char[size];
 		copy(other.buf, other.buf + size, buf);
 	};
-	int Write(string str);
+	size_t Write(string str);
 
 	buffer& operator = (buffer& other)noexcept {
 		if (this != &other) {
@@ -4803,15 +4802,15 @@ public:
 	}
 	~buffer() { delete[] buf; }
 };
-int Println(buffer& bfr) {
+size_t Println(buffer& bfr) {
 	printf("%s\n", string{ bfr }.c_str());
-	int n = bfr.index;
+	size_t n = bfr.index;
 	bfr.index = 0;
 	bfr.buf[0] = '\0';
 	return n;
 }
-int buffer::Write(string str) {
-	int n = str.length();
+size_t buffer::Write(string str) {
+	size_t n = str.length();
 	size_t able = size - index - 1;
 	if (str.length() >= able)
 		n = able;
@@ -5231,6 +5230,40 @@ Money m{ 10 };
 int a = int(m);
 double d = double(m);  // 不存在从 douvle -> int 的转换函数
 ```
+
+>---
+#### 匿名类嵌入
+
+类可以是匿名的，可以在没有名称标识的情况下声明类。常见在 *typedef* 声明时使用：
+
+```c++
+typedef struct
+{
+    unsigned x, y;
+} POINT;
+```
+
+嵌入的匿名类（`union`、`class`，不允许嵌入结构）不能是静态，不能包含非公共成员、静态成员、任何成员函数、构造函数和析构函数、不能作为参数传递、无法作为函数中返回值返回；
+
+```c++
+struct PTValue
+{
+	union
+	{
+		int  iValue;
+		long lValue;
+	};
+	class {  // 等效于 union
+	public:
+		int Data;
+	};
+};
+
+PTValue p{ 1,2 };
+```
+
+>---
+#### 指向成员的指针
 
 
 
