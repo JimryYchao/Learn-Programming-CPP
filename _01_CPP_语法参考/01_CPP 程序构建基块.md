@@ -3203,6 +3203,8 @@ int main() {
 }
 ```
 
+
+
 ---
 ### Namespace
 
@@ -3345,6 +3347,60 @@ int main() {
 ```
 
 ---
+### Array
+
+数组是相同类型的对象序列，它们占据一块连续的内存区。C++ 中建议使用 `std::vector` 或 `std::array`。
+
+分配和访问基于堆栈的数组的速度比基于堆的数组更快，堆栈数组在编译时长度确定。不确定数据大小和长度时，可以使用 `new[]` 表达式在堆上分配此数组。堆数组必须确保在不使用时进行释放：
+
+```c++
+int* numbers = new int[100];
+//  ... use numbers
+delete[] numbers;
+```
+
+数组传递给函数时，该数组将作为指向第一个元素的指针传递。不传递数组大小信息，因此可能需要额外的参数指明数组的长度：
+
+```c++
+void process(double *p, const size_t len)
+{
+    std::cout << "process:\n";
+    for (size_t i = 0; i < len; ++i)
+    {
+        // do something with p[i]
+    }
+}
+```
+
+从其他数组构造的数组是多维数组。通过按顺序指定不同维度的固定长度指定多维数组：
+
+```c++
+int arr[7]{};
+int arr2[3][4]{};  	// 3x4
+int arr3[5][6][7]{};  // 5x6x7
+
+int* parr = &arr[0];  // ==>  parr = arr;
+int(*parr2)[4] = arr2;
+int (*parr3)[6][7] = arr3;
+```
+
+具有类构造函数的对象数组由构造函数初始化。初始化项少于数组中的元素时，则默认构造函数将用于剩余元素。如果没有为类定义默认构造函数，初始化表达式列表必须完整，数组中的每个元素都必须有一个初始化表达式。
+
+```c++
+class Point{ int x, y; }
+Point aPoint[3] = {
+   Point( 3, 3 )     // default constructor.
+};
+```
+
+数组下标运算符的默认行为是使用 `*((array_name) + (subscript))` 的指针加法形式组合数组名称和下标；多维数组使用：
+
+    ((array_name) + (subscript1 * max2 * max3 * ... * maxn) + (subscript2 * max3 * ... * maxn) + ... + subscriptn)
+
+当数组类型的标识符出现在 `sizeof`、*address*-*of* (`&`) 或引用的初始化以外的表达式中时，该标识符将转换为指向第一个数组元素的指针。
+
+
+---
 ### Enum
 
 枚举是用户定义的类型，其中包含一组 “枚举项” 的命名的整型常量。没有 *integerType* 时默认为 `int`。 
@@ -3474,6 +3530,10 @@ struct Input
 ```
 
 `union` 可以包含具有 `class` 类型的非 `static` 数据成员；如果包含这样一个成员，编译器会自动将非用户提供的任何特殊成员函数标记为 `delete`。如果 `union` 是 `class` 或 `struct` 中的匿名联合，则 `class` 或 `struct` 的非用户提供的任何特殊成员函数都会被标记为 `delete`。
+
+---
+### Ref
+
 
 ---
 ### 函数
@@ -5501,6 +5561,7 @@ void ApplyScale2(const vector<int>& v) const
       [*this](int n) { cout << n * _scale << endl; });
 }
 ```
+
 
 
 ---
