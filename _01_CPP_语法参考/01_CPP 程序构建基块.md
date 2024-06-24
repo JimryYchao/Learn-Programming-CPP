@@ -5850,6 +5850,352 @@ cout << r << endl;				// 2
 ```
 
 ---
+### 模板
+
+模板是 C++ 中的泛型编程的基础。使用模板可以定义类或函数的操作，并让用户指定这些操作应处理的具体类型。
+
+模板是基于用户为模板参数提供的参数在编译时生成普通类型或函数的构造。编译器从模板生成类或函数的过程称为 “模板实例化”。任何内置类型或用户定义的类型都可以用作类型参数。
+
+```c++
+// 定义函数模板
+template <typename T>
+T minimum(const T& lhs, const T& rhs)
+{
+    return lhs < rhs ? lhs : rhs;
+}
+int i = minimum<int>(a, b);  // 模板实例化
+```
+
+类型参数的数目没有实际限制，`class` 等效于 `typename` 作为占位符；
+
+```c++
+template <typename T, typename U, typename V> class Foo{};
+// or
+template <class T, class U, class V> class Foo{};
+// 可变数目的类型参数
+template<typename... Arguments> class vtclass;
+vtclass< > vtinstance1;
+vtclass<int> vtinstance2;
+vtclass<float, bool> vtinstance3;
+```
+
+C++ 模板支持非类型参数（值参数）。
+
+```c++
+template<typename T, const size_t L>
+class MyArray
+{
+	T arr[L];
+public:
+	MyArray() { ... }
+};
+MyArray<MyClass*, 10> arr;
+```
+
+也可以使用 `auto` 声明的非类型模板参数，由编译器推导：
+
+```c++
+template <auto x> constexpr auto constant = x;
+
+auto v1 = constant<5>;      // v1 == 5, decltype(v1) is int
+auto v2 = constant<true>;   // v2 == true, decltype(v2) is bool
+auto v3 = constant<'a'>;    // v3 == 'a', decltype(v3) is char
+```
+
+模板可以是模板参数。
+
+```c++
+template<typename T, template<typename U, int I> class Arr>
+class MyClass
+{
+    T t; //OK
+    Arr<T, 10> a;
+    U u; //Error. U not in scope; U,I 可以省略
+};
+// Arr 参数没有正文，可以忽略 U,I 占位
+template<typename T, template<typename, int> class Arr>
+class MyClass2
+{
+    T t; //OK
+    Arr<T, 10> a;
+};
+```
+
+类和函数模板可以具有默认自变量。如果模板具有默认自变量，可以在使用时不指定该自变量。
+
+```c++
+// std::vector
+template <class T, class Allocator = allocator<T>> class vector;
+// 默认的 std::allocator 可以接受，因此可以使用 
+vector<int> myInts;
+// 也可以指定自定义分配器
+vector<int, MyAllocator> ints;
+```
+
+一般而言，模板不可能或不需要为任何类型都定义完全相同的代码。可以为特定类型定义模板的专用化，要求专用化的模板和原始模板在相同的命名空间中声明。而对于其他类型，则使用常规的模板。
+
+```c++
+template <typename K, typename V>
+class MyMap {/*...*/}
+
+// 部分专用化
+template<typename V>
+class MyMap<string, V> {/*...*/};
+
+// 完整专用化
+template<>
+class MyMap<string, string> {/*...*/};
+```
+
+在声明模板的命名空间外定义函数模板或成员函数时，模板自变量将优先于命名空间中其他成员的名称。
+
+```c++
+namespace NS {
+   void g() { cout << "NS::g" << endl; }
+   template <class T> struct C {
+      void f();
+      void g() { cout << "C<T>::g" << endl; }
+   };
+};
+
+template <class T>
+void NS::C<T>::f() { 
+   g(); // C<T>::g, not NS::g
+};
+```
+
+>---
+#### typename
+
+在模板定义中，`typename` 向编译器提供未知标识符是类型的提示。在模板参数列表中，它用于指定类型参数。如果模板定义中的名称是依赖于模板自变量的限定名称，则必须使用 `typename`；如果限定名称是独立的，则此名称是可选的。
+
+`typename` 可由任何类型在模板声明或定义中的任何位置使用。不允许在基类列表中使用该关键字，除非将它用作模板基类的模板自变量。
+
+```c++
+template <class T>
+class Base {};
+template <class T>
+struct Tmp : Base<typename T::InnerType>  // typename OK.
+{
+	void foo(T::InnerType inner) {
+		inner.foo();
+	}
+	void bar(typename T::Inner* pt){
+		pt->foo();
+	}
+};
+
+struct A {
+	class B {
+	public :
+		void foo();
+	};
+};
+void A::B::foo() {
+	std::cout << "Hello World\n";
+}
+
+template <>   // 完整专用化
+struct Tmp<A> : Base<A::B> {
+	void foo(A::B inner) {
+		inner.foo();
+	}
+};
+
+int main() {
+	Tmp<A> t{};
+	t.foo(A::B{});
+}
+```
+
+>---
+#### 类模板的成员函数
+
+可以在类模板的内部或外部定义成员函数。在外部定义就像定义函数模板一样定义它们。成员函数可以是函数模板，并指定额外参数：
+
+```c++
+template<typename T>
+class X
+{
+public:
+	void foo(const T value);
+	template<typename U> void mf(const U&& u); // 模板化的成员函数
+	template<typename U> operator X<U>() {     // 模板化的用户定义
+      return X<U>();
+   }
+};
+
+template<typename T>
+void X<T>::foo(const T value) {
+	cout << "X<T>::foo(" << value << ")\n";
+}
+
+template<typename T> template <typename U>
+void X<T>::mf(const U&& u)
+{
+	cout << "X<T>::mf<U>(" << u << ")\n";
+}
+
+int main() {
+	X<int>{}.foo(10086);
+	X<int>{}.mf<std::string>("Hello World");
+}
+```
+
+模板可以在类或类模板中定义，在这种情况下，它们被称为成员模板。作为类的成员模板称为嵌套类模板。
+
+```c++
+template <class T>
+class X
+{
+   template <class U> class Y  // 类模板的嵌套类模板
+   {
+      U* u;
+   public:
+      Y();
+      U& Value();
+      void print();
+      ~Y();
+   };
+
+   Y<int> y;
+public:
+   X(T t) { y.Value() = t; }
+   void print() { y.print(); }
+};
+
+```
+
+类模板可以具有友元。类或类模板、函数或函数模板可以是模板类的友元。友元也可以是类模板或函数模板的专用化。
+
+```c++
+template <class T> class Array {
+   T* array;
+   int size;
+public:
+   Array(int sz): size(sz) {
+      array = new T[size];
+      memset(array, 0, size * sizeof(T));
+   }
+   Array(const Array& a) {
+      size = a.size;
+      array = new T[size];
+      memcpy_s(array, a.array, sizeof(T));
+   }
+   T& operator[](int i) {
+      return *(array + i);
+   }
+   int Length() { return size; }
+   void print() {
+      for (int i = 0; i < size; i++)
+         cout << *(array + i) << " ";
+
+      cout << endl;
+   }
+
+   template<class T>  // 模板类的模板友元函数
+   friend Array<T>* combine(Array<T>& a1, Array<T>& a2);
+};
+
+template<class T>  // 定义
+Array<T>* combine(Array<T>& a1, Array<T>& a2) {
+   Array<T>* a = new Array<T>(a1.size + a2.size);
+   for (int i = 0; i < a1.size; i++)
+      (*a)[i] = *(a1.array + i);
+   for (int i = 0; i < a2.size; i++)
+      (*a)[i + a1.size] = *(a2.array + i);
+   return a;
+}
+
+int main() {
+   Array<char> alpha1(26);
+   for (int i = 0 ; i < alpha1.Length() ; i++)
+      alpha1[i] = 'A' + i;
+
+   alpha1.print();
+
+   Array<char> alpha2(26);
+   for (int i = 0 ; i < alpha2.Length() ; i++)
+      alpha2[i] = 'a' + i;
+
+   alpha2.print();
+   Array<char>*alpha3 = combine(alpha1, alpha2);
+   alpha3->print();
+   delete alpha3;
+}
+```
+
+模板参数可以在模板参数列表中重复使用。
+
+```c++
+template<class T, T* pT> class X1
+{};
+template<class T1, class T2 = T1> class X2
+{};
+```
+
+>---
+#### 显式实例化
+
+可以使用显式实例化来创建模板化类或函数的实例化，未实例化的模板定义不会放入对象 (*.obj*) 文件中。使用 `extern` 阻止编译器在多个对象模块中生成相同的实例化代码。`extern` 仅适用于在类主体外定义的成员函数。类声明中定义的函数被视为内联函数，并且始终实例化。模板定义的上下文中已弃用 `export` 关键字。
+
+```c++
+template<class T, int i> class MyStack
+{
+    T*  pStack;
+    T StackBuffer[i];
+    static const int cItems = i * sizeof(T);
+public:
+    MyStack( void );
+    void push( const T item );
+    T& pop( void );
+};
+template< class T, int i > MyStack< T, i >::MyStack( void ) { };
+template< class T, int i > void MyStack< T, i >::push( const T item ) { };
+template< class T, int i > T& MyStack< T, i >::pop( void ) { };
+
+// 创建 MyStack 的实例化，并为所有成员生成代码，不保留对象的任何存储
+template class MyStack<int, 6>;
+// 仅显式实例化构造函数成员函数
+template MyStack<int, 6>::MyStack( void );
+// 使用 extern 来防止自动实例化成员
+extern template class MyStack<int, 6>;
+// 将特定成员标记为 extern 且未实例化
+extern template MyStack<int, 6>::MyStack( void );
+```
+
+>---
+#### 模板专用化
+
+以通过为特定类型提供函数模板的显式专用化（重写）来定义该类型的特殊行为
+
+```c++
+template<class T> void f(T t) { };
+// 显式专用化：T -> char 
+template<> void f<char>(char c) { };
+// 显式专用化：T -> double
+template<> void f(double d) { };
+```
+
+在专用化或部分专用化的范围内以不同的方式解释类模板的名称 *A*
+
+```c++
+template <class T> class A {
+   A* a1;   	// A refers to A<T>
+   A<int>* a2;  // A<int> refers to a specialization of A.
+   A<T*>* a3;   // A<T*> refers to the partial specialization A<T*>.
+};
+
+template <class T> class A<T*> {
+   A* a4; // A refers to A<T*>.
+};
+
+template<> class A<int> {
+   A* a5; // A refers to A<int>.
+};
+```
+
+---
 ### Lambda 表达式
 
 ```c++
