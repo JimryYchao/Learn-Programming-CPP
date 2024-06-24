@@ -6250,7 +6250,265 @@ int main() {
 }
 ```
 
-》---
+---
+### 模块
+
+模块是一组源代码文件，这些文件独立于源文件。在模块中声明的宏、预处理器指令和非导出名称在模块外部是不可见的。它们不会影响导入模块的翻译单元的编译。导入翻译单元中的声明不参与导入模块中的重载解析或名称查找。
+
+编译一次模块后，结果将存储在描述所有导出的类型、函数和模板的二进制文件中。 编译器可以比头文件更快地处理模块文件。
+
+可以将模块与头文件并行使用。C++ 源文件可以 `import` 模块，并同时 `#include` 头文件。在一些情况下，可以将头文件导入为模块，这比通过预处理器使用 `#include` 处理它更快。
+
+通过将 C++ 标准库作为模块导入（而不是通过头文件包含它），可以根据项目的规模加快编译时间。若要使用这些模块，请将导入声明添加到源代码文件的顶部。实验性库拆分为以下命名模块：
+
+```c++
+import std.regex;  		// 提供标头 <regex> 的内容
+import std.filesystem;  // 提供标头 <filesystem> 的内容
+import std.memory;      // 提供标头 <memory> 的内容
+import std.threading;   // 提供标头 <atomic>、<condition_variable>、<future>、<mutex>、
+							// <shared_mutex> 和 <thread> 的内容
+import std.core;        // 提供 C++ 标准库中的任何其他内容
+```
+
+下面示例显示了名为 `Example.ixx` 的源文件中的简单模块定义。
+
+```c++
+// Example.ixx
+export module Example;    // 声明此文件的模块的主接口
+#define ANSWER 42
+
+namespace Example_NS
+{
+   int f_internal() {
+        return ANSWER;
+      }
+
+   export int f() {		  // export 表明导出，外部导入模块时 f 可见
+      return f_internal();
+   }
+}
+```
+
+`MyProgram.cpp` 使用 `import` 访问由 `Example` 导出的名称：
+
+```c++
+// MyProgram.cpp
+import Example;
+import std.core;
+using namespace std;
+
+int main()
+{
+   cout << "The result of f() is " << Example_NS::f() << endl; // 42
+   // int i = Example_NS::f_internal(); // 未导出
+   // int j = ANSWER; // 模块中声明的宏不可见
+}
+```
+
+>---
+#### 模块实现
+
+*模块接口* 导出模块名称以及构成模块的公共接口的所有命名空间、类型和函数等。*模块实现* 定义模块导出的内容。模块的最简单形式可以是一个结合了模块接口和实现的文件。可以将实现放入一个或多个单独的模块实现文件中，类似于 `.h` 和 `.cpp` 文件的操作方式。
+
+整个模块有一个主模块接口，它是模块的公共接口。它可以导出分区接口。分区模块由导出模块分区名称的模块接口文件组成。
+
+模块由一个或多个模块单元组成。模块单元是一个包含模块声明的翻译单元（源文件）。有多种类型的模块单元：
+- 模块接口单元会导出模块名称或模块分区名称。模块接口单元在其模块声明中具有 `export module`。
+- 模块实现单元不会导出模块名称或模块分区名称。它可实现模块。
+- 主模块接口单元会导出模块名称。一个模块中必须且只能有一个主模块接口单元。
+- 模块分区接口单元会导出模块分区名称。
+- 模块分区实现单元在其模块声明中具有模块分区名称，但没有 `export` 关键字。
+
+`export` 仅用于接口文件 (默认情况下，具有 `*.ixx`)。实现文件可以 `import` 另一个模块，但不能 `export` 任何名称。实现文件可以具有任何扩展。
+
+如果导出命名空间中的声明也会隐式导出命名空间但不包括未导出名称；导出命名空间则导出它的所有声明。
+
+```c++
+export module moName; // 主模块声明
+
+namespace A{
+	export void foo();  // 导出
+	void bar();   // 未导出
+}
+export namespace B {  // 导出所有成员
+	void foo();   // 导出
+	void bar();   // 导出
+}
+```
+
+模块分区类似于模块，但它：
+- 共享整个模块中的所有声明的所有权；
+- 分区接口文件导出的所有名称都必须由主接口文件导入并导出。
+- 分区的名称必须以模块名称开头，`module main:sub`。
+- 任何分区中的声明在整个模块中都可见。
+- 无需采取特殊预防措施来避免单定义规则 (ODR) 错误。可以在一个分区中声明名称（函数、类等），并在另一个分区中定义它。
+
+```c++
+// 主接口文件导出声明，文件具有 `.ixx` 扩展名
+export module Example;
+// 分区接口文件；
+export module Example:part1;
+// 分区实现文件，内部分区; 指定文件内容输入命名模块
+module Example:part1;
+// 访问另一个分区中的声明，分区必须导入它
+module Example:part2;
+import :part1;
+// 主接口单元必须导入并重新导出模块的所有接口分区文件
+export import :part1;
+export import :part2;
+// 私有模块分区
+module :private;
+```
+
+在模块实现单元 `#include` 的头文件一般在全局模块区域声明
+
+```c++
+// Example-part1.cpp
+module;
+#include "myheader.h"
+#include <iostream>
+#include <stdlib.h>
+
+module Example:part1; // 声明实现文件所属模块 
+ ...  // 模块实现
+```
+
+
+主接口单元可以导入分区实现文件，但无法导出它们。可以显式导出头文件：
+
+```c++
+// Example.ixx
+export mudule Example;
+export import "MyFuncs.h";   // 假设包含模块实现文件所需的类型或函数声明；
+```
+
+可以通过在模块声明前放置 `#include` 指令，将头文件包含在模块源文件中。这些文件被视为位于全局模块片段中。模块只能查看其显式包含的标头中的全局模块片段中的名称。全局模块片段仅包含使用的符号。
+
+```c++
+// MyModuleA.cpp
+#include "customlib.h"
+#include "anotherlib.h"
+
+import std.core;
+import MyModuleB;
+```
+
+可以使用传统的头文件来控制导入的模块：
+
+```c++
+// MyProgram.h
+import std.core;
+#ifdef DEBUG_LOGGING
+import std.filesystem;
+#endif
+```
+
+导入的标头与导入的模块之间的主要区别在于，标头中的任何预处理器定义在 `import` 语句后立即在导入程序中可见。
+
+```c++
+import <vector>;
+import "myheader.h";
+```
+
+使用 `import` 声明使模块名称在程序中可见。`import` 声明必须出现在 `module` 声明之后以及任何 `#include` 指令之后，但必须出现在文件中的任何声明之前。
+
+```c++
+module;
+#include "custom-lib.h"
+module ModuleA;
+
+import std.core;
+import std.regex;
+import ModuleB;
+
+// begin declarations here:
+template <class T>
+class Baz
+{...};
+```
+
+>---
+#### 模块组成的基本大纲
+
+> *主模块接口定义文件*
+
+```c++
+module; // optional. Defines the beginning of the global module fragment
+
+// #include directives go here but only apply to this file and
+// aren't shared with other module implementation files.
+// Macro definitions aren't visible outside this file, or to importers.
+// import statements aren't allowed here. They go in the module preamble, below.
+
+export module [module-name]; // Required. Marks the beginning of the module preamble
+
+// import statements go here. They're available to all files that belong to the named module
+// Put #includes in the global module fragment, above
+
+// After any import statements, the module purview begins here
+// Put exported functions, types, and templates here
+
+module :private; // optional. The start of the private module partition.
+
+// Everything after this point is visible only within this file, and isn't 
+// visible to any of the other files that belong to the named module.
+```
+
+> *模块实现单元*
+
+```c++
+// optional #include or import statements. These only apply to this file
+// imports in the associated module's interface are automatically available to this file
+
+module [module-name]; // required. Identifies which named module this implementation unit belongs to
+
+// implementation
+```
+
+> *模块分区文件* 
+
+```c++
+module; // optional. Defines the beginning of the global module fragment
+
+// This is where #include directives go. They only apply to this file and aren't shared
+// with other module implementation files.
+// Macro definitions aren't visible outside of this file or to importers
+// import statements aren't allowed here. They go in the module preamble, below
+
+export module [Module-name]:[Partition name]; // Required. Marks the beginning of the module preamble
+
+// import statements go here. 
+// To access declarations in another partition, import the partition. Only use the partition name, not the module name.
+// For example, import :Point;
+// #include directives don't go here. The recommended place is in the global module fragment, above
+
+// export imports statements go here
+
+// after import, export import statements, the module purview begins
+// put exported functions, types, and templates for the partition here
+
+module :private; // optional. Everything after this point is visible only within this file, and isn't 
+                         // visible to any of the other files that belong to the named module.
+...
+```
+
+
+>---
+#### 标准库模块
+
+C++23 标准库引入了两个命名模块：`std` 和 `std.compat`；
+
+`import std` 导出 C++ 标准库命名空间 `std` 中定义的声明和名称，例如 `std::vector`。它还会导出 C 包装器标头的内容，例如 `<cstdio>` 和 `<cstdlib>`，提供类似 `std::printf()` 函数的内容。不会导出全局命名空间（如 `::printf()`）中定义的 C 函数。
+
+`import std.compat` 导出 `std` 中的所有内容，并添加 C 运行时全局命名空间，例如 `::printf`、`::fopen`、`::size_t`、`::strlen` 等。
+
+```c++
+import std.compat;
+
+int main() {
+	printf("Hello World! %s", "CPP!");
+}
+```
 
 
 ---
