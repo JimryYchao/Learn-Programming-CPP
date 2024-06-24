@@ -4116,7 +4116,7 @@ decltype(auto) Add(const Lhs& lhs, const Rhs& rhs)
 }
 ```
 
-> 多值返回
+> *多值返回*
 
 可通过多种方式从函数返回多个值；
 - 将值封装在命名类或结构对象中。要求类或结构定义对调用方可见；
@@ -5815,7 +5815,7 @@ cout << r << endl;				// 2
 ### Lambda 表达式
 
 ```c++
-[=]<0> ( arug-list<1> ) mutable<2> throw( exception )<3> ->return-type<4> 
+[=]<0> ( arug-list<1> ) mutable<2> throw()<3> ->return-type<4> 
 {
 	// statements
 }
@@ -5992,14 +5992,12 @@ void ApplyScale2(const vector<int>& v) const
 }
 ```
 
-
-
 ---
 ### 异常处理
 
 异常是一个可能超出程序的控制范围的错误条件，它会阻止程序继续沿其常规执行路径执行。程序错误通常分为两类：
-- 编程错误导致的逻辑错误。例如，“索引超出范围” 错误。
-- 超出程序员控制的运行时错误。例如，“网络服务不可用” 错误。
+- 编程错误导致的逻辑错误。例如，“索引超出范围”。
+- 超出程序员控制的运行时错误。例如，“网络服务不可用”。
 
 在 C 样式的编程和 COM 中，错误报告的管理方式是返回一个表示错误代码或特定函数的状态代码的值，或者设置一个全局变量，调用方可以在每次执行函数调用后选择性地检索该变量来查看是否报告了错误。例如 C `errno`。
 
@@ -6035,6 +6033,184 @@ int main() {
 - 通过值引发异常，通过引用捕获异常。 不要捕获无法处理的异常。
 - 不要允许异常从析构函数或内存解除分配函数中逃逸。
 - 使用适用的标准库异常类型。以及从 exception 类层次结构派生自定义的异常类型。
+
+>---
+#### try, thrwo, catch
+
+`try` 子句后的代码是代码的受保护部分。`throw` 表达式将引发（即引起）异常。`catch` 子句后的代码块是异常处理程序。
+
+如果 `throw` 和 `catch` 表达式中的类型兼容，该处理程序将捕获引发的异常。`catch(...)` 程序块处理每种类型的异常。(MSVC 编译器)当使用 `/EHa` 选项编译时，异常可包括 C 结构化异常和系统生成或应用程序生成的异步异常，例如内存保护、被零除和浮点冲突。
+
+由于 `catch` 程序块按编程顺序处理来查找匹配类型，所以尽量不要使用省略号处理程序来处理关联的 `try` 程序块。谨慎使用 `catch(...)`；除非 `catch` 块知道如何处理捕获的特定异常，否则禁止程序继续执行。`catch(...)` 块一般用于在程序停止执行前记录错误和执行特殊的清理工作。
+
+没有操作数的 `throw` 表达式将重新引发当前正在处理的异常。此类表达式只应在 `catch` 处理程序中或从 `catch` 处理程序调用的函数中使用。重新引发的异常对象是原始异常对象，而不是副本。
+
+> *堆栈展开示例*
+
+```c++
+#include <string>
+#include <iostream>
+using namespace std;
+
+class MyException :exception {};
+class Dummy {
+public:
+	Dummy(string s) : MyName(s) { PrintMsg("Created Dummy:"); }
+	Dummy(const Dummy& other) : MyName(other.MyName) { PrintMsg("Copy created Dummy:"); }
+	~Dummy() { PrintMsg("Destroyed Dummy:"); }
+	void PrintMsg(string s) { cout << s << MyName << endl; }
+	string MyName;
+	int level;
+};
+void C(Dummy d, int i) {
+	cout << "Entering FunctionC" << endl;
+	d.MyName = " C";
+	throw MyException();
+
+	cout << "Exiting FunctionC" << endl;
+}
+void B(Dummy d, int i) {
+	cout << "Entering FunctionB" << endl;
+	d.MyName = "B";
+	C(d, i + 1);
+	cout << "Exiting FunctionB" << endl;
+}
+void A(Dummy d, int i) {
+	cout << "Entering FunctionA" << endl;
+	d.MyName = " A";
+	//  Dummy* pd = new Dummy("new Dummy"); //Not exception safe!!!
+	B(d, i + 1);
+	//   delete pd;
+	cout << "Exiting FunctionA" << endl;
+}
+
+int main() {
+	cout << "Entering main" << endl;
+	try {
+		Dummy d(" M");
+		A(d, 1);
+	}
+	catch (MyException& e) {
+		cout << "Caught an exception of type: " << typeid(e).name() << endl;
+	}
+	catch (exception) {
+		throw;  // 重新引发
+	}
+	cout << "Exiting main." << endl;
+}
+/* Output:
+	Entering main
+	Created Dummy: M
+	Copy created Dummy: M
+	Entering FunctionA
+	Copy created Dummy: A
+	Entering FunctionB
+	Copy created Dummy: B
+	Entering FunctionC
+	Destroyed Dummy: C
+	Destroyed Dummy: B
+	Destroyed Dummy: A
+	Destroyed Dummy: M
+	Caught an exception of type: class MyException
+	Exiting main.
+*/
+```
+
+>---
+#### 异常规范
+
+异常规范指示可由函数传播的异常类型的意图。可以使用异常规范指定函数可以或不可以因异常退出。
+
+`noexcept` 指定可以脱离函数的潜在异常集是否为空；`throw()` 是 `noexcept(true)` 的别名。
+
+|异常规范|含义|
+|:--|:--|
+|`noexcept`<br>`noexcept(true)`<br>`throw()`|函数不会引发异常，也不允许在其范围外传播异常。`noexcept` 和 `noexcept(true)` 是等效的。此规范声明的函数引发异常时，将直接调用 `std::terinate` 终止程序。并且不会保证将调用任何范围内对象的析构函数 |
+|`noexcept(false)`<br>`throw(...)`<br>无规范|函数可以引发任何类型的异常。|
+|`throw(type)`| C++14 之前表示函数可以引发 `type` 类型的异常，之后编译器将其解释为 `noexcept(false)`|
+
+不允许对 C 函数使用显式异常规范。（VS）假定 C 函数在 `/EHsc` 下不引发异常，并且可能会在 `/EHs`、`/EHa` 或 `/EHac` 下引发结构化异常。
+
+```c++
+void handler(const char* msg) { printf_s("at %s in handler\n", msg); }
+
+void f1(void) throw(int) {
+	printf_s("About to throw 1\n");
+	if (1) throw 1;
+}
+
+void f5(void) throw() {
+	try { f1(); }
+	catch (...) { handler("f5"); }
+}
+
+// invalid, doesn't handle the int exception thrown from f1()
+// void f3(void) throw() {
+//   f1();
+// }
+
+void __declspec(nothrow) f2(void) {
+	try { f1(); }
+	catch (int) { handler("f2"); }
+}
+
+// only valid if compiled without /EHc
+// /EHc means assume extern "C" functions don't throw exceptions
+extern "C" void f4(void) { f1(); }
+
+int main() {
+	f2();
+	try { f4(); }
+	catch (...) {
+		printf_s("Caught exception from f4\n");
+	}
+	f5();
+}
+/*
+	About to throw 1
+	at f2 in handler
+	About to throw 1
+	Caught exception from f4
+	About to throw 1
+	at f5 in handler
+*/
+```
+
+当要复制的对象是普通的旧数据类型 (POD) 时，可将复制其自变量的函数模板声明为 `noexcept`。
+
+```c++
+#include <type_traits>
+template <typename T>
+T copy_object(const T& obj) noexcept(std::is_pod<T>)
+{
+   // ...
+}
+```
+
+>---
+#### 未处理的异常
+
+如果无法找到当前异常的匹配处理程序（或 `catch(...)` 处理程序），则调用预定义的 `terminate` 运行时函数（默认操作是 `abort()`）。
+
+可以在程序的任何点调用 `set_terminate`。`terminate` 例程总是调用指定为 `set_terminate` 的参数的最后一个函数。`term_func` 函数最好是通过调用 `exit` 来终止程序或当前线程，否则返回调用方调用 `abort`。
+
+```c++
+using namespace std;
+void term_func() {
+   cout << "term_func was called by terminate." << endl;
+   exit( -1 );
+}
+int main() {
+   try {
+      set_terminate( term_func );
+      throw "Out of memory!"; // No catch handler for this exception
+   }
+   catch( int ) {
+      cout << "Integer exception raised." << endl;
+   }
+   return 0;
+}
+```
 
 ---
 ### 预处理指令

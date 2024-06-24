@@ -9,6 +9,7 @@
 using namespace std;
 
 struct Point {
+    
 	int x, y;
 	Point(int x, int y) : x{ x }, y{ y } {};
 	explicit Point(Point& other) {
@@ -33,6 +34,7 @@ struct Point {
 };
 
 int main() {
+
 	vector<Point> ps = initializer_list<Point>{ {1,1}, {0,0}, {1,2}, {3,4} };
 	ps.insert(ps.begin() + 2, Point{ 3, 3 });
 
