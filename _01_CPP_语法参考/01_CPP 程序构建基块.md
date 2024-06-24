@@ -2940,6 +2940,44 @@ int main() {
 }
 ```
 
+>---
+#### 断言
+
+`static_assert` 声明在编译时有效，它测试用户指定且可以转换为布尔值的整数表达式表示的软件断言。`false` 或零时，编译器发出用户指定的断言消息，并且无法正常编译。可以在命名空间、类或块范围中使用 `static_assert` 关键字
+
+`assert`、`_assert`、`_wassert` 等在运行时断言，`false` 或零时系统发出诊断消息并关闭程序。
+
+```c++
+static_assert( constant-expression [, string-literal ] );
+
+// 命名空间范围断言
+static_assert(sizeof(void *) == 4, "64-bit code generation is not supported.");
+```
+
+> 静态断言验证模板参数是否为标准布局
+
+```c++
+template <class CharT>
+class basic_string {
+	// 类范围断言
+	static_assert(std::is_standard_layout<CharT>::value,
+		"Template argument CharT must be a standard layout type in class template basic_string");
+	// ...
+};
+
+struct NonPOD {
+	NonPOD(const NonPOD&) {}
+	virtual ~NonPOD() {}
+};
+
+int main()
+{
+	basic_string<char> bs;
+	basic_string<NonPOD> vsp;  // 断言失败
+}
+```
+
+
 ---
 ### 语句
 #### 空语句
@@ -6211,6 +6249,9 @@ int main() {
    return 0;
 }
 ```
+
+》---
+
 
 ---
 ### 预处理指令
