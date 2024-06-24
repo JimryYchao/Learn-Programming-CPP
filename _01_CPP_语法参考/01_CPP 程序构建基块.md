@@ -3206,7 +3206,7 @@ int main() {
 
 
 ---
-### Namespace
+### 命名空间
 
 命名空间是一个声明性区域，通过单个标识符的 `using` 声明（`using std::string`）来访问成员 `string`；或 `using` 指令 （`using namespace std`）来访问 `std` 命名空间的所有成员；头文件中的代码应始终使用完全限定的命名空间名称。
 
@@ -3347,7 +3347,7 @@ int main() {
 ```
 
 ---
-### Array
+### 数组
 
 数组是相同类型的对象序列，它们占据一块连续的内存区。C++ 中建议使用 `std::vector` 或 `std::array`。
 
@@ -3401,7 +3401,7 @@ Point aPoint[3] = {
 
 
 ---
-### Enum
+### 枚举
 
 枚举是用户定义的类型，其中包含一组 “枚举项” 的命名的整型常量。没有 *integerType* 时默认为 `int`。 
 
@@ -3469,7 +3469,7 @@ int test() {
 ```
 
 ---
-### Union
+### 联合
 
 联合是一个用户定义类型，其中所有成员都共享同一个内存位置。它始终仅使用足以存储最大成员的内存。如果任何成员类型具有不常用的 constructor（构造函数），则必须编写代码来显式 construct（构造）和销毁该成员。`union` 无法存储引用。`union` 也不支持继承。直接分配初始化表达式时，将该表达式的结果分配给 `union` 的第一个字段。
 
@@ -3532,8 +3532,444 @@ struct Input
 `union` 可以包含具有 `class` 类型的非 `static` 数据成员；如果包含这样一个成员，编译器会自动将非用户提供的任何特殊成员函数标记为 `delete`。如果 `union` 是 `class` 或 `struct` 中的匿名联合，则 `class` 或 `struct` 的非用户提供的任何特殊成员函数都会被标记为 `delete`。
 
 ---
-### Ref
+### 引用
 
+与指针相似的是，引用将存储位于内存中其他位置的对象的地址。与指针不同，初始化之后的引用无法引用不同的对象或设置为 null。有两种类型的引用：引用命名变量的 *lvalue* 引用（`&`）和引用临时对象的 *rvalue* 或通用引用（`&&`）。
+
+左值引用相当于对象的别名；地址可转换为给定指针类型的任何对象，也可转换为相似的引用类型。
+
+
+```C++
+int n = 10010;
+int& r = n;
+int* pn = &r;
+r = 10086;
+assert(*pn = r);   // ok
+int& pnr = *pn;
+pnr = 110;
+assert(pnr == r);  // ok
+```
+
+`&&` 保留对右值表达式的引用；*Rvalue* 引用支持 “移动语义” 的实现。利用移动语义，可以将资源（如动态分配的内存）从一个对象转移到另一个对象。也允许从临时对象（无法在程序中的其他位置引用）转移资源。
+
+
+
+实现移动语义，通常可以向类提供 “移动构造函数”（`class(class&&)`），或者提供移动赋值运算符（`operator=(class&&)`）。例如，`std::string` 实现了使用移动语义的操作：
+
+```c++
+string s = string("h") + "e" + "ll" + "o";
+```
+
+例如 `vector` 元素插入，当插入操作复制元素时，它首先创建一个新元素。然后它调用复制构造函数将数据从上一个元素复制到新元素。最后，它会销毁上一个元素。利用移动语义，可以直接移动对象而不必执行成本高昂的内存分配和复制操作。
+
+```c++
+void g(const MemoryBlock&)
+{
+   cout << "In g(const MemoryBlock&)." << endl;
+}
+void g(MemoryBlock&&)
+{
+   cout << "In g(MemoryBlock&&)." << endl;
+}
+MemoryBlock&& f(MemoryBlock&& block)
+{
+   g(block);
+   return move(block);
+}
+int main()
+{
+   g(f(MemoryBlock()));
+}
+// In g(const MemoryBlock&).
+// In g(MemoryBlock&&).
+```
+
+编译器将已命名的右值引用视为左值，而将未命名的右值引用视为右值。C++ 标准库 `std::move` 函数可以将某个对象转换为对该对象的 *rvalue* 引用。
+
+---
+### 指针
+
+指针是一个变量，可以存储一个对象的内存地址。主要用于在堆上分配对象、作为参数传递、循环访问数组或其他数据结构中的元素。
+
+原始指针是指其生存期不受封装对象控制的指针。指针可以指向类型化对象或指向 `void`。当不再需要堆分配的对象时，必须对拥有对象的指针（或其副本）显式释放。未能释放内存会导致内存泄漏。
+
+```c++
+MyClass* mc = new MyClass(); // allocate object on the heap
+mc->print(); // access class member
+delete mc; 	 // delete object (please don't forget!)
+```
+
+指针和数组密切相关。当数组按值传递给函数时，它将作为指向第一个元素的指针传递。
+- `sizeof` 运算符返回数组的总大小（以字节为单位）；
+- 当数组被传递给函数时，它会衰减为指针类型；
+- 当 `sizeof` 运算符应用于指针时，它将返回指针大小。
+
+指向 `void` 的指针仅指向原始内存位置。例如在 C++ 代码和 C 函数之间传递时需要使用 `void*`；将类型化指针强制转换为 `void` 指针时，内存位置的内容保持不变，类型信息会丢失，无法执行递增或递减操作。
+
+`const` 和 `volatile` 限制指针为固定和可变指针；固定指针初始化后无法修改；可变指针可用用户程序操作之外的操作修改。例如 `volatile` 声明共享内存中可由多个进程访问的对象或用于与中断服务例程通信的全局数据区域。
+
+```c++
+const int *pci;			   // 指向常量对象的指针
+volatile int *pvi;		   // 指向可变对象的指针
+const volatile int *pcvi;  // 指向无法修改但外部可变的对象的指针
+```
+
+`const` 和 `volatile` 还可用于限制指针的解引用行为：
+
+```c++
+int * const cpi;      //  常量指针
+int * volatile vpi;   //  可变指针
+const int * const cpci;  // 指向常量的常量指针
+const int * volatile vpci;  // 指向常量的可变指针
+volatile int * const cpvi;  // 指向可变对象的常量指针
+volatile int * volatile vpvi;  // 指向可变对象的可变指针
+```
+
+>---
+#### 智能指针
+
+智能指针（`<memory>`）用于确保程序不存在内存和资源泄漏且是异常安全的。
+
+```c++
+Point* p1 = new Point{};
+unique_ptr<Point> p2(new Point{});
+```
+
+C++ 智能指针思路类似于在语言（如 C#）中创建对象的过程：创建对象后让系统负责在正确的时间将其删除。
+
+始终在单独的代码行上创建智能指针，而绝不在参数列表中创建智能指针，这样就不会由于某些参数列表分配规则而发生轻微泄露资源的情况。
+
+如何使用 C++ 标准库中的 `unique_ptr` 智能指针类型将指针封装到大型对象：
+- 将智能指针声明为一个自动（局部）变量。
+- 在类型参数中，指定封装指针的指向类型；
+- 在智能指针构造函数中将原始指针传递至 `new` 对象；
+- 使用重载的 `->` 和 `*` 运算符访问对象；
+- 离开范围时允许智能指针删除对象。
+
+```c++
+class LargeObject
+{
+public:
+    void DoSomething(){}
+};
+
+void ProcessLargeObject(const LargeObject& lo){}
+void SmartPointerDemo()
+{    
+    // Create the object and pass it to a smart pointer
+    std::unique_ptr<LargeObject> pLarge(new LargeObject());
+    //Call a method on the object
+    pLarge->DoSomething();
+    // Pass a reference to a method.
+    ProcessLargeObject(*pLarge);
+} //pLarge is deleted automatically when function block goes out of scope.
+```
+
+> C++ *标准库智能指针*
+
+使用这些智能指针作为将指针封装为纯旧 C++ 对象 (POCO) 的首选项。
+
+- `unique_ptr` 只允许基础指针的一个所有者。作为 POCO 的默认选项；可以移到新所有者，但不会复制或共享。小巧高效且大小等同于一个指针，支持 *rvalue* 引用。
+
++ `shared_ptr` 采用引用计数的智能指针。将一个原始指针分配给多个所有者时使用。直至所有 `shared_ptr` 所有者超出了范围或放弃所有权，才会删除原始指针。
+
+- `weak_ptr` 结合 `shared_ptr` 使用的特例智能指针。`weak_ptr` 提供对一个或多个 `shared_ptr` 实例拥有的对象的访问，但不参与引用计数。
+
+>---
+#### unique_ptr
+
+`unique_ptr` 不共享它的指针。它无法复制到其他 `unique_ptr`，无法通过值传递到函数，也无法用于需要副本的任何 C++ 标准库算法。只能移动 `unique_ptr`。
+
+创建 `unique_ptr` 实例并在函数之间传递实例：
+
+```c++
+struct Song {
+	wstring artist;
+	wstring title;
+	Song(wstring artist, wstring title) : artist{ artist }, title{ title } {};
+};
+unique_ptr<Song> SongFactory(const std::wstring& artist, const std::wstring& title)
+{
+	// Implicit move operation into the variable that stores the result.
+	return make_unique<Song>(artist, title);
+}
+void MakeSongs()
+{
+	// Create a new unique_ptr with a new object.
+	auto song = make_unique<Song>(L"Mr. Children", L"Namonaki Uta");
+
+	// Use the unique_ptr.
+	vector<wstring> titles = { song->title };
+
+	// Move raw pointer from one unique_ptr to another.
+	unique_ptr<Song> song2 = std::move(song);
+
+	// Obtain unique_ptr from function that returns by value.
+	auto song3 = SongFactory(L"Michael Jackson", L"Beat It");
+}
+```
+
+使用 `make_unique` 将 `unique_ptr` 创建到数组，但无法使用 `make_unique` 初始化数组元素：
+
+```c++
+// Create a unique_ptr to an array of 5 integers.
+auto p = make_unique<int[]>(5);
+
+// Initialize the array.
+for (int i = 0; i < 5; ++i)
+{
+    p[i] = i;
+    wcout << p[i] << endl;
+}
+```
+
+>---
+#### shared_ptr 
+
+`shared_ptr` 为多个所有者需要管理对象生命周期的一种智能指针；`shared_ptr` 可复制，按值将其传入函数参数，然后将其分配给其他 `shared_ptr` 实例。 所有实例均指向同一个对象，并共享对一个 “控制块”（每当新的 `shared_ptr` 添加、超出范围或重置时增加和减少引用计数）的访问权限。当引用计数达到零时，控制块将删除内存资源和自身。
+
+> *前提类型声明*
+
+```c++
+struct MediaAsset
+{
+    virtual ~MediaAsset() = default; // make it polymorphic
+};
+struct Song : public MediaAsset
+{
+    std::wstring artist;
+    std::wstring title;
+    Song(const std::wstring& artist_, const std::wstring& title_) :
+        artist{ artist_ }, title{ title_ } {}
+};
+
+struct Photo : public MediaAsset
+{
+    std::wstring date;
+    std::wstring location;
+    std::wstring subject;
+    Photo(
+        const std::wstring& date_,
+        const std::wstring& location_,
+        const std::wstring& subject_) :
+        date{ date_ }, location{ location_ }, subject{ subject_ } {}
+};
+```
+
+> *首次创建* `shared_ptr`
+
+第一次创建内存资源时，使用 `make_shared` 函数创建 `shared_ptr` 或显式 `new` 并传递给 `shared_ptr`：
+
+```c++
+// Use make_shared function when possible.
+auto sp1 = make_shared<Song>(L"The Beatles", L"Im Happy Just to Dance With You");
+
+// Ok, but slightly less efficient. 
+// Note: Using new expression as constructor argument
+// creates no named variable for other code to access.
+shared_ptr<Song> sp2(new Song(L"Lady Gaga", L"Just Dance"));
+
+// When initialization must be separate from declaration, e.g. class members, 
+// initialize with nullptr to make your programming intent explicit.
+shared_ptr<Song> sp5(nullptr);
+//Equivalent to: shared_ptr<Song> sp5;
+//...
+sp5 = make_shared<Song>(L"Elton John", L"I'm Still Standing");
+```
+
+> *共享*
+
+```c++
+//Initialize with copy constructor. Increments ref count.
+auto sp3(sp2);
+
+//Initialize via assignment. Increments ref count.
+auto sp4 = sp2;
+
+//Initialize with nullptr. sp7 is empty.
+shared_ptr<Song> sp7(nullptr);
+// Initialize with another shared_ptr. sp1 and sp2
+// swap pointers as well as ref counts.
+sp1.swap(sp2);
+```
+
+> *在容器中复制元素*
+
+```c++
+vector<shared_ptr<Song>> v {
+  make_shared<Song>(L"Bob Dylan", L"The Times They Are A Changing"),
+  make_shared<Song>(L"Aretha Franklin", L"Bridge Over Troubled Water"),
+  make_shared<Song>(L"Thalía", L"Entre El Mar y Una Estrella")
+};
+
+vector<shared_ptr<Song>> v2;
+remove_copy_if(v.begin(), v.end(), back_inserter(v2), [] (shared_ptr<Song> s) 
+{
+    return s->artist.compare(L"Bob Dylan") == 0;
+});
+
+for (const auto& s : v2)
+{
+    wcout << s->artist << L":" << s->title << endl;
+}
+```
+
+> *转换* `shared_ptr`
+
+使用 `dynamic_pointer_cast`、`static_pointer_cast` 和 `const_pointer_cast` 来转换 `shared_ptr`：
+
+```c++
+vector<shared_ptr<MediaAsset>> assets {
+  make_shared<Song>(L"Himesh Reshammiya", L"Tera Surroor"),
+  make_shared<Song>(L"Penaz Masani", L"Tu Dil De De"),
+  make_shared<Photo>(L"2011-04-06", L"Redmond, WA", L"Soccer field at Microsoft.")
+};
+
+vector<shared_ptr<MediaAsset>> photos;
+copy_if(assets.begin(), assets.end(), back_inserter(photos), [] (shared_ptr<MediaAsset> p) -> bool
+{
+    // Use dynamic_pointer_cast to test whether element is a shared_ptr<Photo>.
+    shared_ptr<Photo> temp = dynamic_pointer_cast<Photo>(p);
+    return temp.get() != nullptr;
+});
+
+for (const auto&  p : photos)
+{
+    // We know that the photos vector contains only shared_ptr<Photo> objects, so use static_cast.
+    wcout << "Photo location: " << (static_pointer_cast<Photo>(p))->location << endl;
+}
+```
+
+> *传递给其他函数*
+
+- 按值传递 `shared_ptr`。这将调用复制构造函数，增加引用计数，并使被调用方成为所有者。
+- 按引用或常量引用传递 `shared_ptr`。引用计数不会增加，只要调用方不超出范围，被调用方就可以访问指针。
+- 传递基础指针或对基础对象的引用。被调用方能够使用对象，但不会共享所有权或延长生存期。
+
+```c++
+void use_shared_ptr_by_value(shared_ptr<int> sp);
+
+void use_shared_ptr_by_reference(shared_ptr<int>& sp);
+void use_shared_ptr_by_const_reference(const shared_ptr<int>& sp);
+
+void use_raw_pointer(int* p);
+void use_reference(int& r);
+
+void test() {
+    auto sp = make_shared<int>(5);
+
+    // Pass the shared_ptr by value.
+    // This invokes the copy constructor, increments the reference count, and makes the callee an owner.
+    use_shared_ptr_by_value(sp);
+
+    // Pass the shared_ptr by reference or const reference.
+    // In this case, the reference count isn't incremented.
+    use_shared_ptr_by_reference(sp);
+    use_shared_ptr_by_const_reference(sp);
+
+    // Pass the underlying pointer or a reference to the underlying object.
+    use_raw_pointer(sp.get());
+    use_reference(*sp);
+
+    // Pass the shared_ptr by value.
+    // This invokes the move constructor, which doesn't increment the reference count
+    // but in fact transfers ownership to the callee.
+    use_shared_ptr_by_value(move(sp));
+}
+```
+
+>---
+
+#### weak_ptr 
+
+有时对象必须存储一种方法来访问 `shared_ptr` 的基础对象，而不会导致引用计数递增。例如在 `shared_ptr` 实例之间有循环引用时。
+
+`weak_ptr` 本身不参与引用计数，它无法阻止引用计数变为零。但是可以使用 `weak_ptr` 尝试获取初始化该副本的 `shared_ptr` 的新副本。若已删除内存，则 `weak_ptr` 的 `bool` 运算符 `if(weak_ptr)` 返回 `false`。
+
+> *将* `weak_ptr` *用于确保正确删除具有循环依赖项的对象*
+
+这些 `Controller` 对象表示计算机进程的一些方面，它们独立运行。每个控制器必须随时能够查询其他控制器的状态，每个控制器都包含一个专用 `vector<weak_ptr<Controller>>` 用于实现此目的。每个向量都包含一个循环引用，因此使用 `weak_ptr` 实例而不是 `shared_ptr`。
+
+```c++
+#include <iostream>
+#include <memory>
+#include <string>
+#include <vector>
+#include <algorithm>
+
+using namespace std;
+
+class Controller
+{
+public:
+   int Num;
+   wstring Status;
+   vector<weak_ptr<Controller>> others;
+   explicit Controller(int i) : Num(i), Status(L"On")
+   {
+      wcout << L"Creating Controller" << Num << endl;
+   }
+
+   ~Controller()
+   {
+      wcout << L"Destroying Controller" << Num << endl;
+   }
+
+   // Demonstrates how to test whether the
+   // pointed-to memory still exists or not.
+   void CheckStatuses() const
+   {
+      for_each(others.begin(), others.end(), [](weak_ptr<Controller> wp) {
+         auto p = wp.lock();
+         if (p)
+         {
+            wcout << L"Status of " << p->Num << " = " << p->Status << endl;
+         }
+         else
+         {
+            wcout << L"Null object" << endl;
+         }
+      });
+   }
+};
+
+void RunTest()
+{
+   vector<shared_ptr<Controller>> v{
+       make_shared<Controller>(0),
+       make_shared<Controller>(1),
+       make_shared<Controller>(2),
+       make_shared<Controller>(3),
+       make_shared<Controller>(4),
+   };
+
+   // Each controller depends on all others not being deleted.
+   // Give each controller a pointer to all the others.
+   for (int i = 0; i < v.size(); ++i)
+   {
+      for_each(v.begin(), v.end(), [&v, i](shared_ptr<Controller> p) {
+         if (p->Num != i)
+         {
+            v[i]->others.push_back(weak_ptr<Controller>(p));
+            wcout << L"push_back to v[" << i << "]: " << p->Num << endl;
+         }
+      });
+   }
+
+   for_each(v.begin(), v.end(), [](shared_ptr<Controller> &p) {
+      wcout << L"use_count = " << p.use_count() << endl;
+      p->CheckStatuses();
+   });
+}
+
+int main()
+{
+   RunTest();
+   wcout << L"Press any key" << endl;
+   char ch;
+   cin.getline(&ch, 1);
+}
+```
 
 ---
 ### 函数
@@ -3893,11 +4329,11 @@ void ShowVar(char* szTypes, ...) {
 ```
 
 >---
-#### 函数重载
+#### 函数重载和成员函数限定
 
 允许在同一范围内指定多个同名函数。这些函数称为重载函数或重载。可以根据参数的类型和数量为函数提供不同的语义。无法通过返回类型的不同和 `noexcept` 异常规范进行重载。
 
-可以通过参数数目、类型、是否包含可变参数、`const` 或 `volatile` 函数限定、`&` 或 `&&` 限定等区分用于重载：
+可以通过参数数目、类型、是否包含可变参数、`const` 或 `volatile` 函数限定、`&` 或 `&&` 限定等区分用于重载，仅限成员函数：
 
 ```c++
 class S {
@@ -3919,6 +4355,7 @@ public:
 	// cv 限定区分
 	void foo(int) const {}
 	void foo(int) volatile {}
+	void foo(int) const volatile {}
 
 	// ref 限定区分
 	// 仅通过引用限定进行区分的重载需要全部都具有引用限定或都不具有
@@ -3928,6 +4365,9 @@ public:
 	void foo(float)const&& {}
 	void foo(float)volatile& {}
 	void foo(float)volatile&& {}
+	void foo(float)const volatile& {}
+	void foo(float)const volatile&& {}
+
 
 	void foo(auto) {}
 	// 可以通过编译，但无法通过函数决策; 它们无法进行区分
@@ -3941,16 +4381,6 @@ public:
 ```
 
 编译器根据当前范围内的函数声明与函数调用中提供的参数的最佳匹配，来选择要调用的重载函数。如果找到合适的函数，则调用该函数。编译器为每个自变量创建一组候选函数。其中的实际自变量可以转换为形式自变量的类型。为每个自变量生成一组 “最佳匹配函数”，并且所选函数是所有集的交集。如果交集包含多个函数，则重载是不明确的并会生成错误。
-
-> *Microsoft 专用:*
-
-可以根据返回类型重载 `operator new`，特别是根据指定的内存模型修饰符。
-
-```c++
-// Microsoft C++
-
-
-```
 
 > *参数匹配和转换*
 
