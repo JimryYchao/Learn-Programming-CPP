@@ -6861,6 +6861,8 @@ int main() {
 ### 预处理指令
 
 ```c++
+// 空指令
+#   
 // 条件包含
 defined                       // 条件编译符号测试
 __has_include (C++17)         // 源文件包含测试
@@ -6888,9 +6890,105 @@ import (C++20)
 // 实现定义行为控制
 #pragma
 _Pragma
-
+// 模块导出
 export (C++20)
 module (C++20)
+```
+
+>---
+#### 宏定义与取消宏定义
+
+`#define` 创建一个宏，该宏是标识符或参数化标识符与标记字符串的关联。编译器可用标记字符串替换源文件中标识符的每个匹配项。
+
+```c++
+#define identifier 									// 条件编译宏
+#define identifier token-string						// 类常量宏
+#define identifier(id0?, id1?, ...?) token-string?  // 类函数宏
+
+#undef identifier    // 取消宏定义
+```
+
+条件编译宏由 `#if` `defined` 等条件控制指令进行测试；
+
+```c++
+#define DEBUF
+
+#if defined(DEBUG)
+	void foo(int){};
+#else 
+	void foo(char){};
+#endif
+```
+
+类函数宏接受必须出现在括号内的参数的可选列表，每个后续匹配项 `(id0?, id1?, ...?)` 将替换为 *token-string* 参数的一个版本。
+
+```c++
+#define CURSOR(top, bottom) (((top) << 8) | (bottom))
+#define getrandom(min, max) \
+    ((rand()%(int)(((max) + 1)-(min)))+ (min))
+```
+
+> *字符串化运算符 `#`*
+
+在仿函数宏中，*替换列表* 中标识符前的 `#` 字符串化运算符对标识符做形参替换，并将结果环绕在引号中，等效地创建一个字符串字面量。
+
+例如 `x` 是一个宏形参，那么 ```#x``` 就是转换为字符串 ```"x"``` 的形参名。这个过程称为字符串化（stringify）：
+- 格式要求：在字符串外使用 ```"str1" #x "str2"```，在字符串内使用没有替换功能。
+- 转换过程：```#signal``` >>> ```"signal"```。
+
+```c
+#include <stdio.h>
+#define stringer( x ) printf_s( #x "\n" )
+int main() {
+   stringer( In quotes in the printf function call );
+   stringer( "In quotes when printed to the screen" );
+   stringer( "This: \"  prints an escaped double quote" );
+   // 替换为
+   printf_s( "In quotes in the printf function call" "\n" );
+   printf_s( "\"In quotes when printed to the screen\"" "\n" );
+   printf_s( "\"This: \\\" prints an escaped double quote\"" "\n" );
+}
+```
+
+预处理器会添加反斜杠，以转义环绕内嵌字符串字面量的引号，若存在，并按需在字符串中双写反斜杠。它移除所有前导和尾随空白符，且将任何文本中部的空白符序列（但非内嵌字符串字面量中的）缩减成单个空格。
+
+```c
+#define Show(x) puts(#x);
+Show("\123");   // 展开为 puts("\"\\123\"");
+```
+
+> *连接运算符 `##`*
+
+```##``` 运算符可用于仿函数宏的替换部分。而且，```##``` 还可用于对象宏的替换部分。```##``` 运算符把两个记号组合成一个记号。
+
+只可以粘贴有一同组成合法记号的记号：组成较长标识符的标识符、组成数字的数位、或组成 `+=` 的运算符 `+` 与 `=`。不能通过粘贴 `/` 与 `*` 创建注释，因为注释在进行宏替换前已被移除。若连接的结果不是合法记号，则行为未定义。
+
+一些编译器提供允许 `##` 出现在逗号后和 `__VA_ARGS__` 前的扩展，在此情况下 `##` 在 `__VA_ARGS__` 非空时无效，但在 `__VA_ARGS__` 为空时移除逗号：这使得可以定义如 `fprintf (stderr, format, ##__VA_ARGS__)` 的宏。
+
+```c
+#include <stdio.h>
+#define Printf(format, ...) fprintf(stderr, format, ## __VA_ARGS__)
+#define XNAME(n) x ## n   // 表示将 x 与 n 组合成一个记号
+#define PRINT_XN(n) printf("x" #n " = %d\n", x ## n);
+
+int main(void)
+{
+	Printf("%d %d\n", 1, 2);
+	Printf("Hello World\n");
+
+	int XNAME(1) = 14; 	// 变成 int x1 = 14;
+	int XNAME(2) = 20; 	// 变成 int x2 = 20;
+	int x3 = 30;
+
+	PRINT_XN(1); // 变成 printf("x1 = %d\n", x1);
+	PRINT_XN(2); // 变成 printf("x2 = %d\n", x2);
+	PRINT_XN(3); // 变成 printf("x3 = %d\n", x3);
+	return 0;
+}
+/*
+	PRINT_XN() 宏用 # 运算符组合字符串
+	## 运算符把记号组合为一个新的标识符。
+*/
 ```
 
 >---
@@ -6987,11 +7085,83 @@ ATTR_DEPRECATED("This function is deprecated") void anvil();
 ```
 
 >---
-#### 模块指令
+#### 诊断指令
 
 ```c++
-
+#if !defined(__cplusplus)
+#error C++ compiler required.
+#else 
+#if _MSVC_STL_VERSION <= 140 
+# warning STL version should be 140 at least.
+#endif
 ```
 
-模块指令中模块预处理令牌之后的任何预处理令牌的处理方式与普通文本相同。
+>---
+#### 行指令
 
+```c++
+#line digit-sequence ["filename"]
+```
+
+`#line` 指令更改源行号和文件名。翻译器使用行号和文件名来确定预定义宏 `__FILE__` 和 `__LINE__` 的值。
+
+```c++
+int main()
+{
+    printf( "This code is on line %d, in file %s\n", __LINE__, __FILE__ );
+#line 10
+    printf( "This code is on line %d, in file %s\n", __LINE__, __FILE__ );
+#line 20 "hello.cpp"
+    printf( "This code is on line %d, in file %s\n", __LINE__, __FILE__ );
+    printf( "This code is on line %d, in file %s\n", __LINE__, __FILE__ );
+}
+/*
+This code is on line 7, in file line_directive.cpp
+This code is on line 10, in file line_directive.cpp
+This code is on line 20, in file hello.cpp
+This code is on line 21, in file hello.cpp
+*/
+```
+
+>---
+#### 编译器选项
+
+`Pragma` 指令指定计算机特定或操作系统特定的编译器功能。以 `#pragma` 开头行指定 `pragma` 指令。
+
+```c++
+#pragma token-string
+_Pragma(string-literal) // C99
+```
+
+C 和 C++ 的每个实现均支持某些对其主机或操作系统唯一的功能。在保持与 C 和 C++ 语言的总体兼容性的同时，`#pragma` 指令使每个编译器均能够提供计算机特定和操作系统特定的功能。
+
+>---
+#### 预定义宏
+
+标准预定义标识符 `__func__`，封闭函数（用作 `char` 的函数局部 `static const` 数组）的未限定、未修饰名称。
+
+```c++
+void example()
+{
+    printf("%s\n", __func__);
+} // prints "example"
+```
+
+编译器支持 ISO C99、C11、C17 和 ISO C++17 标准指定的以下预定义宏：
+
+- `__cplusplus`：当翻译单元编译为 C++ 时，定义为整数文本值。其他情况下则不定义。
+- `__DATE__`：当前源文件的编译日期。日期是 Mmm dd yyyy 格式的恒定长度字符串文本。月份名 Mmm 与 C 运行时库 (CRT) `asctime` 函数生成的缩写月份名相同。如果值小于 10，则日期 dd 的第一个字符为空格。任何情况下都会定义此宏。
+- `__FILE__`：当前源文件的名称。`__FILE__` 展开为字符型字符串文本。
+- `__LINE__`：定义为当前源文件中的整数行号。可使用 `#line` 指令来更改此宏的值。
+- `__STDC__`：仅在编译为 C，它定义为 1。其他情况下则不定义。
+`__STDC_HOSTED__`：如果实现是托管实现并且支持整个必需的标准库，则定义为 1。其他情况下则定义为 0。
+- `__STDC_NO_ATOMICS__` 如果实现不支持可选的标准原子，则定义为 1。
+- `__STDC_NO_COMPLEX__` 如果实现不支持可选的标准复数，则定义为 1。
+- `__STDC_NO_THREADS__` 如果实现不支持可选的标准线程，则定义为 1。
+- `__STDC_NO_VLA__` 如果实现不支持可选的可变长度数组，则定义为 1。
+- `__STDC_VERSION__` 标准 C 的 version。 
+- `__STDCPP_DEFAULT_NEW_ALIGNMENT__` 宏会扩展为 `size_t` 字面量，该字面量的对齐值由对非对齐感知的 `operator new` 的调用所保证。较大的对齐值传递到对齐感知重载，例如 `operator new(std::size_t, std::align_val_t)`。
+- `__STDCPP_THREADS__` 当且仅当程序可以有多个执行线程并编译为 C++ 时，定义为 1。其他情况下则不定义。
+- `__TIME__` 预处理翻译单元的翻译时间。时间是 hh:mm:ss 格式的字符型字符串文本，与 CRT `asctime` 函数返回的时间相同。任何情况下都会定义此宏。
+
+---
