@@ -5519,8 +5519,7 @@ void copy_strings()
 继承从现有类派生新类；可以是单一继承，或多重继承：
 
 ```c++
-class Derived : Base-Class [, Base-Class1, ...]
-{
+class Derived : Base-Class [, Base-Class1, ...] {
     // member list
 };
 Base-Class = [virtual] [access-specifier] Base-class-Name
